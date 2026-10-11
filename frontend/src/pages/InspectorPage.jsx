@@ -817,7 +817,7 @@ Notes: ${dossier.notes || "None"}
                               Cloud AI Security Verification (Google Gemini)
                             </h3>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">
-                              {effectiveGemini?.model || 'gemini-2.0-flash'}
+                              {effectiveGemini?.model || 'gemini-3.5-flash'}
                             </span>
                           </div>
                           <p className="text-[11px] text-[#687385]">

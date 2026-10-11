@@ -116,7 +116,7 @@ class GeminiVerificationResult(BaseModel):
     reasoning: Optional[str] = None
     detected_tactics: List[str] = Field(default_factory=list)
     recommendation: Optional[str] = None  # ALLOW, BLOCK, SANITIZE, ESCALATE
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-3.5-flash"
     timestamp: Optional[str] = None
     error: Optional[str] = None
 
