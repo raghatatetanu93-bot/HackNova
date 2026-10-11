@@ -1,6 +1,6 @@
 # PromptShield X — Adaptive, Trust-Aware AI Security Gateway
 
-Built for **VORTEXA 3.0** (12-Hour Student Hackathon).
+Built for **VORTEXA 3.0** (12-Hour Student Hackathon) — Track **C-03**.
 
 PromptShield X is an adaptive, dual-boundary AI security gateway designed to inspect incoming prompts, uploaded documents, external web snippets, and AI tool operations to defend against prompt injection and data exfiltration threats.
 
@@ -97,3 +97,8 @@ cd frontend
 npm run dev
 ```
 Open `http://localhost:5173` in your browser. The application opens directly to the **Inspector**.
+---
+
+## 7. Team
+Four members working on frontend, backend, AI, and evaluation (VORTEXA 3.0 — Track C-03).
+
