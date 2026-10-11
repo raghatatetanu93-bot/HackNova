@@ -40,7 +40,16 @@ async function request(endpoint, options = {}) {
 export const api = {
   checkHealth: () => request("/health"),
 
-  inspectContent: ({ task, content, sourceType = "User Prompt", forceDegraded = false }) =>
+  inspectContent: ({
+    task,
+    content,
+    sourceType = "User Prompt",
+    forceDegraded = false,
+    geminiApiKey = null,
+    forceCloudVerification = false,
+    allowSimulation = false,
+    person = null,
+  }) =>
     request("/inspect", {
       method: "POST",
       body: JSON.stringify({
@@ -48,6 +57,10 @@ export const api = {
         content,
         source_type: sourceType,
         force_detector_degraded: forceDegraded,
+        gemini_api_key: geminiApiKey,
+        force_cloud_verification: forceCloudVerification,
+        allow_simulation: allowSimulation,
+        person: person,
       }),
     }),
 
@@ -104,4 +117,77 @@ export const api = {
     }),
 
   getLatestEvaluation: () => request("/evaluation/latest"),
+
+  escalateIncident: ({
+    inspectionId = null,
+    person,
+    maliciousText,
+    violatingRules = [],
+    severity = "high",
+    completePrompt,
+    authorizedTask,
+    decision = "BLOCK",
+    riskPriority = 85,
+    higherAuthority = "Chief Information Security Officer (CISO) & SecOps Incident Response",
+    notes = "",
+  }) =>
+    request("/incidents/escalate", {
+      method: "POST",
+      body: JSON.stringify({
+        inspection_id: inspectionId,
+        person,
+        malicious_text: maliciousText,
+        violating_rules: violatingRules,
+        severity,
+        complete_prompt: completePrompt,
+        authorized_task: authorizedTask,
+        decision,
+        risk_priority: riskPriority,
+        higher_authority: higherAuthority,
+        notes,
+      }),
+    }),
+
+  getIncidents: (limit = 50) => request(`/incidents?limit=${limit}`),
+
+  verifyWithGemini: ({ content, task = "", apiKey = null, allowSimulation = false }) =>
+    request("/gemini/verify", {
+      method: "POST",
+      body: JSON.stringify({
+        content,
+        task,
+        api_key: apiKey,
+        allow_simulation: allowSimulation,
+      }),
+    }),
+
+  getGeminiConfig: () => request("/gemini/config"),
+
+  saveGeminiConfig: (apiKey) =>
+    request("/gemini/config", {
+      method: "POST",
+      body: JSON.stringify({ api_key: apiKey }),
+    }),
+
+  getAuthorityPrompts: ({ limit = 100, department = "", decision = "", search = "" } = {}) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", limit.toString());
+    if (department && department !== "ALL") params.set("department", department);
+    if (decision && decision !== "ALL") params.set("decision", decision);
+    if (search) params.set("search", search);
+    return request(`/authority/prompts?${params.toString()}`);
+  },
+
+  getAuthorityStats: () => request("/authority/stats"),
+
+  updateIncident: ({ incidentId, status, notes = "", investigator = "" }) =>
+    request(`/incidents/${incidentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status,
+        notes,
+        investigator,
+      }),
+    }),
 };
+

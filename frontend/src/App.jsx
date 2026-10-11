@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import InspectorPage from './pages/InspectorPage';
+import AuthorityPortalPage from './pages/AuthorityPortalPage';
 import AttackLabPage from './pages/AttackLabPage';
 import PoliciesPage from './pages/PoliciesPage';
 import EvaluationPage from './pages/EvaluationPage';
@@ -40,6 +41,11 @@ export default function App() {
         return {
           title: 'Inspect content',
           subtitle: 'Check what enters your AI application and understand how it is handled.',
+        };
+      case 'authority':
+        return {
+          title: 'Authority Investigation Portal',
+          subtitle: 'Enterprise-wide employee prompt monitoring, forensic investigation, and escalated incident triage.',
         };
       case 'attack-lab':
         return {
@@ -82,6 +88,7 @@ export default function App() {
         <Header title={title} subtitle={subtitle} />
         <div className="flex-1 pb-12">
           {activeTab === 'inspector' && <InspectorPage />}
+          {activeTab === 'authority' && <AuthorityPortalPage />}
           {activeTab === 'attack-lab' && <AttackLabPage />}
           {activeTab === 'policies' && <PoliciesPage />}
           {activeTab === 'evaluation' && <EvaluationPage />}

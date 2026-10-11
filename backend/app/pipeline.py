@@ -11,7 +11,8 @@ from typing import Dict, Any, List
 
 from backend.app.schemas import (
     InspectRequest, InspectResponse, Finding, RiskIndicator,
-    NormalizationDetail, MLDetectorResult, IntentAnalysisResult, DecisionStep
+    NormalizationDetail, MLDetectorResult, IntentAnalysisResult, DecisionStep,
+    GeminiVerificationResult, PersonData
 )
 from backend.app.normalization import normalize_text
 from backend.app.rules import evaluate_rules
@@ -21,7 +22,8 @@ from backend.app.intent_engine import analyze_intent_drift
 from backend.app.risk_engine import calculate_risk_scores
 from backend.app.policy_engine import evaluate_security_policy
 from backend.app.sanitizer import surgical_sanitize
-from backend.app.storage import save_inspection
+from backend.app.storage import save_inspection, save_incident
+from backend.app.gemini_verifier import verify_with_gemini
 
 def run_inspection_pipeline(req: InspectRequest) -> InspectResponse:
     start_time = time.time()
@@ -142,6 +144,51 @@ def run_inspection_pipeline(req: InspectRequest) -> InspectResponse:
         permitted_content = raw_text
         forwarding_permitted = True
 
+    # Step 8.5: Cloud Gemini AI Consultation (Triggered when software has doubt or requested)
+    gemini_verification_obj = None
+    ml_prob = ml_output.get("attack_probability", 0.0)
+    ml_status = ml_output.get("status", "ready")
+    intent_mismatch = intent_output.get("mismatch_detected", False)
+
+    has_doubt = (
+        decision == "ESCALATE"
+        or ml_status == "degraded"
+        or (0.25 <= ml_prob <= 0.70 and len(rule_findings) == 0 and len(protected_findings) == 0)
+        or (intent_mismatch and len(rule_findings) == 0)
+        or bool(req.force_cloud_verification)
+    )
+
+    if has_doubt:
+        gemini_res = verify_with_gemini(
+            content=raw_text,
+            task=task,
+            api_key=req.gemini_api_key,
+            allow_simulation=bool(req.allow_simulation)
+        )
+        gemini_verification_obj = GeminiVerificationResult(**gemini_res)
+
+        if gemini_res.get("is_verified"):
+            if gemini_res.get("is_malicious") and gemini_res.get("threat_score", 0) >= 60:
+                if decision != "BLOCK":
+                    decision = "BLOCK"
+                    forwarding_permitted = False
+                    summary_explanation = (
+                        f"Cloud Gemini AI confirmed malicious intent (Threat Score: {gemini_res.get('threat_score')}/100, "
+                        f"Level: {gemini_res.get('maliciousness_level')}). {gemini_res.get('reasoning')}"
+                    )
+                    triggered_policy = "POL-GEMINI-BLOCK (Cloud AI Confirmed Threat)"
+            elif not gemini_res.get("is_malicious") and gemini_res.get("threat_score", 0) < 40:
+                if decision == "ESCALATE":
+                    decision = "ALLOW"
+                    forwarding_permitted = True
+                    permitted_content = raw_text
+                    summary_explanation = (
+                        f"Cloud Gemini AI resolved software doubt and confirmed prompt is safe "
+                        f"(Threat Score: {gemini_res.get('threat_score')}/100, Level: {gemini_res.get('maliciousness_level')}). "
+                        f"{gemini_res.get('reasoning')}"
+                    )
+                    triggered_policy = "POL-GEMINI-ALLOW (Cloud AI Confirmed Safe)"
+
     # Step 9: Construct Judge-Facing 6-Step "How this decision was made"
     decision_steps = [
         DecisionStep(
@@ -235,13 +282,52 @@ def run_inspection_pipeline(req: InspectRequest) -> InspectResponse:
         intent_analysis=intent_detail,
         decision_steps=decision_steps,
         policy_version=policy_eval.get("policy_version", "v2.1"),
-        created_at=now_iso
+        created_at=now_iso,
+        gemini_verification=gemini_verification_obj
     )
 
     # Persist in local SQLite database
     save_data = response.model_dump()
     save_data["original_content"] = raw_text  # store raw for review validation
     save_data["masked_content"] = mask_text(raw_text)
+    save_data["person"] = req.person.model_dump() if (hasattr(req, "person") and req.person) else None
+    save_data["gemini_verification"] = gemini_verification_obj.model_dump() if gemini_verification_obj else None
     save_inspection(save_data)
+
+    # If prompt is malicious (BLOCK or ESCALATE), log into incidents table for Authority Portal
+    if decision in ["BLOCK", "ESCALATE"]:
+        person_obj = req.person or PersonData()
+        person_dict = person_obj.model_dump() if hasattr(person_obj, "model_dump") else person_obj
+        malicious_snippets = (
+            "; ".join([f'"{f.evidence_snippet}" ({f.name})' for f in unified_findings])
+            if unified_findings
+            else summary_explanation
+        )
+        auto_inc_id = f"INC-{datetime.now().strftime('%Y%m%d')}-{inspection_id[:6].upper()}"
+        auto_incident_data = {
+            "id": auto_inc_id,
+            "inspection_id": inspection_id,
+            "person_name": person_dict.get("name", "Alex Vance"),
+            "person_email": person_dict.get("email", "alex.vance@internal-corp.net"),
+            "person_id": person_dict.get("employee_id", "EMP-8842"),
+            "person_department": person_dict.get("department", "Finance & Commercial Operations"),
+            "client_ip": person_dict.get("client_ip", "192.168.1.104"),
+            "client_workstation": person_dict.get("workstation", "WS-CORP-FIN-03"),
+            "malicious_text": malicious_snippets,
+            "violating_rules": triggered_rules,
+            "severity": "critical" if risk_scores.combined_priority > 60 else "high",
+            "complete_prompt": raw_text,
+            "authorized_task": task,
+            "decision": decision,
+            "risk_priority": risk_scores.combined_priority,
+            "higher_authority": "Chief Information Security Officer (CISO) & SecOps Incident Response",
+            "notes": f"Ingestion security alert: Policy engine designated prompt as {decision}. Transferred for higher authority investigation.",
+            "status": "TRANSFERRED_FOR_INVESTIGATION",
+            "created_at": now_iso
+        }
+        try:
+            save_incident(auto_incident_data)
+        except Exception:
+            pass
 
     return response

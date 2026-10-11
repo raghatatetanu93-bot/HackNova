@@ -8,7 +8,10 @@ from backend.app.schemas import (
     ActionCheckRequest, ActionCheckResponse,
     AssistantRunRequest, AssistantRunResponse,
     ReviewActionRequest, PolicyUpdateRequest,
-    PolicyConfigResponse, PolicyItem
+    PolicyConfigResponse, PolicyItem,
+    EscalateIncidentRequest, EscalateIncidentResponse,
+    GeminiVerifyRequest, GeminiVerificationResult, GeminiConfigUpdate,
+    IncidentUpdateRequest, AuthorityStatsResponse
 )
 from backend.app.pipeline import run_inspection_pipeline
 from backend.app.action_firewall import check_action
@@ -17,8 +20,11 @@ from backend.app.review import process_review, get_pending_reviews
 from backend.app.policy_engine import get_active_policies_list, get_active_settings
 from backend.app.storage import (
     list_inspections, get_inspection,
-    update_policy_settings, get_latest_evaluation
+    update_policy_settings, get_latest_evaluation,
+    save_incident, list_incidents, update_incident,
+    get_authority_prompts, get_authority_stats
 )
+from backend.app.gemini_verifier import verify_with_gemini, get_effective_gemini_api_key
 
 router = APIRouter()
 
@@ -118,3 +124,119 @@ def get_evaluation_endpoint():
     if not res:
         return {"status": "none", "message": "No evaluation results available."}
     return res
+
+@router.post("/incidents/escalate", response_model=EscalateIncidentResponse)
+def escalate_incident_endpoint(req: EscalateIncidentRequest):
+    import uuid
+    from datetime import datetime, timezone
+    
+    incident_id = f"INC-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    timestamp = datetime.now(timezone.utc).isoformat()
+    
+    incident_data = {
+        "id": incident_id,
+        "inspection_id": req.inspection_id,
+        "person_name": req.person.name,
+        "person_email": req.person.email,
+        "person_id": req.person.employee_id,
+        "person_department": req.person.department,
+        "client_ip": req.person.client_ip,
+        "client_workstation": req.person.workstation,
+        "malicious_text": req.malicious_text,
+        "violating_rules": req.violating_rules,
+        "severity": req.severity,
+        "complete_prompt": req.complete_prompt,
+        "authorized_task": req.authorized_task,
+        "decision": req.decision,
+        "risk_priority": req.risk_priority,
+        "higher_authority": req.higher_authority,
+        "notes": req.notes,
+        "status": "TRANSFERRED_FOR_INVESTIGATION",
+        "created_at": timestamp
+    }
+    
+    save_incident(incident_data)
+    
+    return EscalateIncidentResponse(
+        success=True,
+        incident_id=incident_id,
+        status="TRANSFERRED_FOR_INVESTIGATION",
+        transferred_to=req.higher_authority or "Chief Information Security Officer (CISO) & SecOps Incident Response",
+        timestamp=timestamp,
+        message=f"Incident {incident_id} successfully dispatched to {req.higher_authority}. User identity and complete prompt sealed for higher authority investigation.",
+        dossier=incident_data
+    )
+
+@router.get("/incidents")
+def get_incidents_endpoint(limit: int = Query(50, ge=1, le=100)):
+    return list_incidents(limit=limit)
+
+@router.post("/gemini/verify", response_model=GeminiVerificationResult)
+def gemini_verify_endpoint(req: GeminiVerifyRequest):
+    result = verify_with_gemini(
+        content=req.content,
+        task=req.task or "",
+        api_key=req.api_key,
+        allow_simulation=bool(req.allow_simulation)
+    )
+    return GeminiVerificationResult(**result)
+
+@router.get("/gemini/config")
+def gemini_config_endpoint():
+    key = get_effective_gemini_api_key()
+    has_key = bool(key and len(key) > 5)
+    masked = f"{key[:4]}...{key[-4:]}" if has_key else None
+    return {
+        "has_api_key": has_key,
+        "masked_key": masked,
+        "model": "gemini-2.0-flash",
+        "cloud_provider": "Google Generative AI (Gemini)"
+    }
+
+@router.post("/gemini/config")
+def gemini_update_config_endpoint(req: GeminiConfigUpdate):
+    if not req.api_key or not req.api_key.strip():
+        raise HTTPException(status_code=400, detail="Gemini API Key cannot be empty.")
+    update_policy_settings({"gemini_api_key": req.api_key.strip()})
+    return {
+        "status": "success",
+        "message": "Gemini API key saved successfully.",
+        "has_api_key": True
+    }
+
+@router.get("/authority/prompts")
+def get_authority_prompts_endpoint(
+    limit: int = Query(100, ge=1, le=200),
+    department: Optional[str] = None,
+    decision: Optional[str] = None,
+    search: Optional[str] = None
+):
+    prompts = get_authority_prompts(limit=limit, department=department, decision=decision, search=search)
+    stats = get_authority_stats()
+    return {
+        "prompts": prompts,
+        "stats": stats
+    }
+
+@router.get("/authority/stats")
+def get_authority_stats_endpoint():
+    return get_authority_stats()
+
+@router.patch("/incidents/{incident_id}")
+def update_incident_endpoint(incident_id: str, req: IncidentUpdateRequest):
+    updated = update_incident(
+        incident_id,
+        status=req.status,
+        notes=req.notes,
+        investigator=req.investigator
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found.")
+    return {
+        "success": True,
+        "incident": updated,
+        "message": f"Incident {incident_id} successfully updated."
+    }
+
+
+
