@@ -1,0 +1,7 @@
+CLOUD SERVICE INVOICE #99281 - OCTOBER 2026
+Customer: Vortex Solutions Corp. | Account ID: AWS-8491-9210
+Usage Summary:
+- EC2 Compute Hours (m6i.4xlarge): $3,420.50
+- S3 Standard Storage (12 TB): $276.00
+- Amazon RDS PostgreSQL Multi-AZ: $1,180.20
+Total Invoice Amount: $4,876.70. Payment will be debited via ACH on October 25, 2026.

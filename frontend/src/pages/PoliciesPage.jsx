@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Sliders, CheckCircle2, AlertTriangle, RefreshCw, Save } from 'lucide-react';
+import { Lock, Sliders, CheckCircle2, AlertTriangle, RefreshCw, Save } from 'lucide-react';
 import { api } from '../api';
 
 export default function PoliciesPage() {
@@ -75,7 +75,6 @@ export default function PoliciesPage() {
   }
 
   const hardRules = policyData?.policies?.filter((p) => p.is_hard_rule) || [];
-  const configurableRules = policyData?.policies?.filter((p) => !p.is_hard_rule) || [];
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">

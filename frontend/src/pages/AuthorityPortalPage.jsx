@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert, ShieldCheck, AlertTriangle, AlertOctagon, User,
-  FileText, Search, Filter, RefreshCw, Eye, CheckCircle2,
-  Clock, Building, Laptop, ArrowUpRight, Copy, Check,
-  Sparkles, ExternalLink, MessageSquare, ChevronDown, ChevronUp,
-  Download, Send, Edit3, X
+  FileText, Search, RefreshCw, Eye,
+  Clock, Building, Laptop, Copy, Check,
+  MessageSquare, ChevronDown, ChevronUp,
+  Edit3, X
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -31,7 +31,6 @@ export default function AuthorityPortalPage() {
 
   // Selected item for modal
   const [selectedIncident, setSelectedIncident] = useState(null);
-  const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
   // Status update form inside modal

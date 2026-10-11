@@ -9,7 +9,7 @@ export default function Header({ title, subtitle }) {
       </div>
       <div className="flex items-center gap-3">
         <span className="text-[11px] font-medium text-[#687385] bg-[#F3F5F7] px-2.5 py-1 rounded-md border border-[#E5E9EF]">
-          VORTEXA 3.0
+          Enterprise SecOps Edition
         </span>
         <span className="text-[11px] font-medium text-[#4263A6] bg-[#E8EEF8] px-2.5 py-1 rounded-md border border-[#4263A622]">
           Policy Active: v2.1

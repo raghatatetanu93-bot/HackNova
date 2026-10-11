@@ -189,7 +189,7 @@ def run_inspection_pipeline(req: InspectRequest) -> InspectResponse:
                     )
                     triggered_policy = "POL-GEMINI-ALLOW (Cloud AI Confirmed Safe)"
 
-    # Step 9: Construct Judge-Facing 6-Step "How this decision was made"
+    # Step 9: Construct 6-Step Forensic Decision Audit Trail ("How this decision was made")
     decision_steps = [
         DecisionStep(
             step_number=1,

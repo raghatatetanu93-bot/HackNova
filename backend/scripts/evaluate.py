@@ -143,8 +143,8 @@ def run_evaluation():
     print(f"Average Inspection Latency : {avg_latency} ms")
     print("-------------------------------------------------------")
     print(f"Rule-Only F1 Score         : {r_f1 * 100:.1f}%")
-    print(f"Hybrid F1 Score            : {f1 * 100:.1f}% (+{(f1 - r_f1)*100:.1f}%)")
     print("=======================================================\n")
+    return eval_payload
 
 if __name__ == "__main__":
     run_evaluation()

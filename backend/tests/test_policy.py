@@ -78,5 +78,5 @@ def test_human_review_cannot_override_hard_block():
 
     # Attempting to APPROVE a hard block must raise ValueError
     with pytest.raises(ValueError) as excinfo:
-        process_review(test_id, reviewer="judge_user", action="APPROVE", notes="Attempting override")
+        process_review(test_id, reviewer="secops_auditor", action="APPROVE", notes="Attempting override")
     assert "Security invariant violation" in str(excinfo.value)

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search, Clock, ShieldCheck, AlertOctagon, FileText, X,
-  ExternalLink, ChevronRight, RefreshCw, UserCheck, UserX, AlertTriangle
+  Search, X,
+  ChevronRight, RefreshCw, UserCheck, UserX, AlertTriangle,
+  Copy, Check, CheckCircle2
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -18,6 +19,14 @@ export default function HistoryPage() {
 
   // Review action state
   const [reviewActionLoading, setReviewActionLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
+
+  const copyToClipboard = (text, field) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -65,8 +74,8 @@ export default function HistoryPage() {
       await api.submitReview({
         inspectionId: detail.inspection_id,
         action,
-        reviewer: 'lead_evaluator',
-        notes: `Judge review decision: ${action}`,
+        reviewer: 'secops_auditor',
+        notes: `Security audit review decision: ${action}`,
       });
       // Reload detail
       const refreshed = await api.getInspectionDetails(detail.inspection_id);
@@ -212,7 +221,16 @@ export default function HistoryPage() {
             <div>
               <div className="flex items-center justify-between border-b border-[#E5E9EF] pb-4">
                 <div>
-                  <div className="text-[11px] font-mono text-[#687385]">{selectedId}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-[#687385]">{selectedId}</span>
+                    <button
+                      onClick={() => copyToClipboard(selectedId, 'id')}
+                      className="text-[#687385] hover:text-[#202631] p-0.5 rounded cursor-pointer"
+                      title="Copy ID"
+                    >
+                      {copiedField === 'id' ? <Check className="w-3.5 h-3.5 text-[#24866B]" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   <h3 className="text-sm font-semibold text-[#202631] mt-0.5">Inspection Record</h3>
                 </div>
                 <button
@@ -243,15 +261,89 @@ export default function HistoryPage() {
                     </p>
                   </div>
 
+                  {/* Triggered Policy & Rules */}
+                  {(detail.triggered_policy || (detail.triggered_rules && detail.triggered_rules.length > 0)) && (
+                    <div className="p-3 bg-[#FFFFFF] border border-[#E5E9EF] rounded-lg space-y-1.5">
+                      <div className="font-semibold text-[#202631] text-[11px] uppercase">Enforced Policy & Triggered Rules</div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {detail.triggered_policy && (
+                          <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#F3F5F7] text-[#202631] font-semibold">
+                            {detail.triggered_policy}
+                          </span>
+                        )}
+                        {detail.triggered_rules?.map((rule) => (
+                          <span key={rule} className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#FDECEC] text-[#C85858] font-bold">
+                            {rule}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sanitized Content (if available) */}
+                  {detail.sanitized_content && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-[#24866B] uppercase flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Excised / Sanitized Content (Safe to Forward)
+                        </label>
+                        <button
+                          onClick={() => copyToClipboard(detail.sanitized_content, 'sanitized')}
+                          className="text-[10px] text-[#4263A6] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                        >
+                          {copiedField === 'sanitized' ? <Check className="w-3 h-3 text-[#24866B]" /> : <Copy className="w-3 h-3" />}
+                          {copiedField === 'sanitized' ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="p-3 bg-[#EBF5F0] border border-[#24866B33] rounded-lg font-mono text-[11px] text-[#202631] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                        {detail.sanitized_content}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Masked Content View */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#687385] uppercase mb-1">
-                      Stored Masked Content
-                    </label>
-                    <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg font-mono text-[11px] text-[#202631] whitespace-pre-wrap leading-relaxed">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-[#687385] uppercase">
+                        Stored Masked Content
+                      </label>
+                      <button
+                        onClick={() => copyToClipboard(detail.content, 'content')}
+                        className="text-[10px] text-[#4263A6] hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        {copiedField === 'content' ? <Check className="w-3 h-3 text-[#24866B]" /> : <Copy className="w-3 h-3" />}
+                        {copiedField === 'content' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg font-mono text-[11px] text-[#202631] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
                       {detail.content}
                     </div>
                   </div>
+
+                  {/* Forensic Findings */}
+                  {detail.findings && detail.findings.length > 0 && (
+                    <div className="p-3 bg-[#FFFFFF] border border-[#E5E9EF] rounded-lg space-y-2">
+                      <div className="font-semibold text-[#202631] text-[11px] uppercase">Forensic Findings ({detail.findings.length})</div>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {detail.findings.map((f, idx) => (
+                          <div key={idx} className="p-2 bg-[#F8F9FB] rounded border border-[#E5E9EF] text-[11px] flex items-start justify-between gap-2">
+                            <div>
+                              <div className="font-semibold text-[#C85858]">{f.name || f.category}</div>
+                              {f.evidence_snippet && (
+                                <div className="font-mono text-[10px] text-[#687385] mt-0.5 bg-[#FFFFFF] px-1 py-0.5 rounded border border-[#E5E9EF] inline-block">
+                                  "{f.evidence_snippet}"
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#FDECEC] text-[#C85858]">
+                              {f.severity || 'HIGH'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Risk Breakdown */}
                   {detail.risk_scores && (
@@ -260,19 +352,19 @@ export default function HistoryPage() {
                       <div className="grid grid-cols-4 gap-2 text-center">
                         <div className="p-2 bg-[#F8F9FB] rounded border border-[#E5E9EF]">
                           <div className="text-[10px] text-[#687385]">Prompt</div>
-                          <div className="font-bold text-[#202631]">{detail.risk_scores.prompt_risk}</div>
+                          <div className="font-bold text-[#202631]">{detail.risk_scores.prompt_risk ?? 0}</div>
                         </div>
                         <div className="p-2 bg-[#F8F9FB] rounded border border-[#E5E9EF]">
                           <div className="text-[10px] text-[#687385]">Source</div>
-                          <div className="font-bold text-[#202631]">{detail.risk_scores.source_risk}</div>
+                          <div className="font-bold text-[#202631]">{detail.risk_scores.source_risk ?? 0}</div>
                         </div>
                         <div className="p-2 bg-[#F8F9FB] rounded border border-[#E5E9EF]">
                           <div className="text-[10px] text-[#687385]">Drift</div>
-                          <div className="font-bold text-[#202631]">{detail.risk_scores.intent_drift_risk}</div>
+                          <div className="font-bold text-[#202631]">{detail.risk_scores.intent_drift_risk ?? 0}</div>
                         </div>
                         <div className="p-2 bg-[#F8F9FB] rounded border border-[#E5E9EF]">
                           <div className="text-[10px] text-[#687385]">Impact</div>
-                          <div className="font-bold text-[#202631]">{detail.risk_scores.action_impact}</div>
+                          <div className="font-bold text-[#202631]">{detail.risk_scores.action_impact ?? 0}</div>
                         </div>
                       </div>
                     </div>

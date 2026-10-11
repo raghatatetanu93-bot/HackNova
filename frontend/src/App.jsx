@@ -22,7 +22,7 @@ export default function App() {
         if (isMounted && res.status === 'healthy') {
           setBackendStatus('online');
         }
-      } catch (e) {
+      } catch {
         if (isMounted) setBackendStatus('offline');
       }
     };

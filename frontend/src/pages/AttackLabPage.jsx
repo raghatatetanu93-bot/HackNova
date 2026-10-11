@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ShieldAlert, ShieldCheck, AlertOctagon, CheckCircle2, ArrowRight,
-  Play, RefreshCw, Flame, Lock, Eye, ExternalLink, Bot
+  AlertOctagon, CheckCircle2, Play, RefreshCw
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -114,10 +113,43 @@ const SCENARIOS = [
 ];
 
 export default function AttackLabPage() {
-  const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[1]); // Default to Indirect Injection (Demo B)
+  const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[1]);
   const [running, setRunning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [actionResult, setActionResult] = useState(null);
+  const [testDocuments, setTestDocuments] = useState([]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    api.getTestDocuments()
+      .then((docs) => {
+        if (isMounted && Array.isArray(docs)) setTestDocuments(docs);
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleTestDocSelect = (e) => {
+    const docId = e.target.value;
+    if (!docId) return;
+    const doc = testDocuments.find((d) => d.id === docId);
+    if (doc) {
+      const sc = {
+        id: doc.id,
+        title: doc.name,
+        category: doc.category,
+        expected: doc.expected_decision,
+        task: doc.task,
+        source: doc.source_type,
+        content: doc.content,
+        mechanism: doc.threat_description,
+        toolDemo: doc.tool_demo || false,
+        toolName: doc.tool_name,
+        toolArgs: doc.tool_args,
+      };
+      handleRunScenario(sc);
+    }
+  };
 
   const handleRunScenario = async (sc) => {
     setSelectedScenario(sc);
@@ -156,11 +188,27 @@ export default function AttackLabPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* Scenario Grid Cards */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-[#687385]">
-            Select Judge Demonstration Scenario
+            Select Demonstration Scenario
           </h2>
-          <span className="text-[11px] text-[#4263A6] font-medium">9 Pre-Configured Test Scenarios</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#4263A6] font-medium">9 Quick Scenarios</span>
+            {testDocuments.length > 0 && (
+              <select
+                onChange={handleTestDocSelect}
+                defaultValue=""
+                className="px-2.5 py-1 rounded-md bg-[#FFFFFF] border border-[#BDC7D5] text-[#202631] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4263A6] shadow-2xs cursor-pointer max-w-xs"
+              >
+                <option value="" disabled>Or test from 30 Malicious Documents & Files...</option>
+                {testDocuments.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.id}: {doc.name} [{doc.expected_decision}]
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {SCENARIOS.map((sc) => {
@@ -201,11 +249,11 @@ export default function AttackLabPage() {
         </div>
       </div>
 
-      {/* Visual Centerpiece: 30-Second Judge Demonstration Flow */}
+      {/* End-to-End Gateway Processing Flow */}
       <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-[#E5E9EF] pb-4">
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#4263A6]">Live Demonstration Flow</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#4263A6]">Live Gateway Enforcement Pipeline</span>
             <h3 className="text-base font-semibold text-[#202631] mt-0.5">
               {selectedScenario.title} — {selectedScenario.category}
             </h3>
@@ -313,7 +361,7 @@ export default function AttackLabPage() {
 
                   <div className="space-y-1 text-[11px] text-[#687385]">
                     <div>Triggered Policy: <strong className="text-[#202631]">{scanResult.triggered_policy}</strong></div>
-                    <div>Combined Risk Priority: <strong className="text-[#202631]">{scanResult.risk_scores.combined_priority}/100</strong></div>
+                    <div>Combined Risk Priority: <strong className="text-[#202631]">{scanResult.risk_scores?.combined_priority ?? 0}/100</strong></div>
                     <div>Forwarding Allowed: <strong className={scanResult.forwarding_permitted ? 'text-[#24866B]' : 'text-[#C85858]'}>{scanResult.forwarding_permitted ? 'Yes' : 'No'}</strong></div>
                   </div>
                 </div>
@@ -353,7 +401,7 @@ export default function AttackLabPage() {
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     Clean Content Forwarded to Assistant
                   </div>
-                  <p className="font-mono text-[11px] text-[#202631] bg-[#FFFFFF] p-2 rounded border border-[#24866B22]">
+                  <p className="font-mono text-[11px] text-[#202631] bg-[#FFFFFF] p-2 rounded border border-[#24866B22] whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
                     "{scanResult.sanitized_content}"
                   </p>
                   <p className="text-[11px] text-[#687385]">

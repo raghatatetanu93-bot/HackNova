@@ -1,7 +1,12 @@
 """FastAPI router and endpoints for PromptShield X."""
 
-from fastapi import APIRouter, HTTPException, Query
+import os
+import json
+import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
+
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.schemas import (
     InspectRequest, InspectResponse,
@@ -43,6 +48,16 @@ def inspect_content(req: InspectRequest):
         return run_inspection_pipeline(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inspection pipeline failure: {str(e)}")
+
+@router.get("/test-documents")
+def get_test_documents_endpoint():
+    """Returns the comprehensive corpus of malicious and test documents and files."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_path = os.path.join(base_dir, "data", "test_documents.json")
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
 @router.get("/policies", response_model=PolicyConfigResponse)
 def get_policies_endpoint():
@@ -125,11 +140,18 @@ def get_evaluation_endpoint():
         return {"status": "none", "message": "No evaluation results available."}
     return res
 
+@router.post("/evaluation/run")
+def run_evaluation_endpoint():
+    """Executes the benchmark evaluation runner and saves fresh metrics."""
+    try:
+        from backend.scripts.evaluate import run_evaluation
+        result = run_evaluation()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to run evaluation: {str(e)}")
+
 @router.post("/incidents/escalate", response_model=EscalateIncidentResponse)
 def escalate_incident_endpoint(req: EscalateIncidentRequest):
-    import uuid
-    from datetime import datetime, timezone
-    
     incident_id = f"INC-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     timestamp = datetime.now(timezone.utc).isoformat()
     

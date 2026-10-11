@@ -215,7 +215,7 @@ def simulate_gemini_assessment(content: str, task: str = "") -> Dict[str, Any]:
     if is_benign_quotation_or_research(content):
         return {
             "is_verified": True,
-            "status": "verified (simulated demo)",
+            "status": "verified (offline heuristic simulation)",
             "is_malicious": False,
             "maliciousness_level": "SAFE",
             "threat_score": 10,
@@ -223,7 +223,7 @@ def simulate_gemini_assessment(content: str, task: str = "") -> Dict[str, Any]:
             "reasoning": "Gemini Cloud AI analyzed semantic context and confirmed this is benign educational/academic security research discussing attack concepts, not an active injection attack.",
             "detected_tactics": [],
             "recommendation": "ALLOW",
-            "model": "gemini-2.0-flash (simulated)",
+            "model": "gemini-2.5-flash (offline simulation)",
             "timestamp": now_iso,
             "error": None
         }
@@ -252,7 +252,7 @@ def simulate_gemini_assessment(content: str, task: str = "") -> Dict[str, Any]:
     
     return {
         "is_verified": True,
-        "status": "verified (simulated demo)",
+        "status": "verified (offline heuristic simulation)",
         "is_malicious": is_malicious,
         "maliciousness_level": level,
         "threat_score": threat_score,
@@ -260,7 +260,7 @@ def simulate_gemini_assessment(content: str, task: str = "") -> Dict[str, Any]:
         "reasoning": reasoning,
         "detected_tactics": tactics,
         "recommendation": recommendation,
-        "model": "gemini-2.0-flash (simulated)",
+        "model": "gemini-2.5-flash (offline simulation)",
         "timestamp": now_iso,
         "error": None
     }

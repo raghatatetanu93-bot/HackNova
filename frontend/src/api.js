@@ -24,7 +24,7 @@ async function request(endpoint, options = {}) {
       try {
         const errJson = await res.json();
         errDetail = errJson.detail || errDetail;
-      } catch (e) {
+      } catch {
         // fallback to status text
       }
       throw new Error(errDetail);
@@ -118,6 +118,8 @@ export const api = {
 
   getLatestEvaluation: () => request("/evaluation/latest"),
 
+  runEvaluation: () => request("/evaluation/run", { method: "POST" }),
+
   escalateIncident: ({
     inspectionId = null,
     person,
@@ -189,5 +191,7 @@ export const api = {
         investigator,
       }),
     }),
+
+  getTestDocuments: () => request("/test-documents"),
 };
 

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid
 } from 'recharts';
-import { BarChart3, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, RefreshCw, Zap } from 'lucide-react';
 import { api } from '../api';
 
 export default function EvaluationPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [filter, setFilter] = useState('ALL');
+  const [runningBenchmark, setRunningBenchmark] = useState(false);
 
   const fetchEvaluation = async () => {
     setLoading(true);
@@ -24,6 +25,20 @@ export default function EvaluationPage() {
       setData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRunBenchmark = async () => {
+    setRunningBenchmark(true);
+    try {
+      const res = await api.runEvaluation();
+      if (res && res.total_cases) {
+        setData(res);
+      }
+    } catch (err) {
+      alert(`Failed to run benchmark: ${err.message}`);
+    } finally {
+      setRunningBenchmark(false);
     }
   };
 
@@ -45,12 +60,13 @@ export default function EvaluationPage() {
       <div className="p-12 text-center text-xs text-[#687385]">
         <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-[#C48A31]" />
         <h3 className="font-semibold text-[#202631]">No evaluation results available.</h3>
-        <p className="mt-1">Run the evaluation script to calculate real benchmark metrics on held-out datasets.</p>
+        <p className="mt-1">Run the evaluation benchmark to calculate real empirical metrics on held-out datasets.</p>
         <button
-          onClick={fetchEvaluation}
-          className="mt-4 px-3 py-1.5 rounded-lg bg-[#4263A6] text-white text-xs font-medium cursor-pointer"
+          onClick={handleRunBenchmark}
+          disabled={runningBenchmark}
+          className="mt-4 px-4 py-2 rounded-lg bg-[#4263A6] hover:bg-[#34518C] text-white text-xs font-medium cursor-pointer shadow-xs disabled:opacity-50"
         >
-          Refresh Benchmark
+          {runningBenchmark ? 'Running Live Benchmark...' : 'Run Benchmark Now'}
         </button>
       </div>
     );
@@ -93,13 +109,24 @@ export default function EvaluationPage() {
             Measured against {data.total_cases} curated, held-out test scenarios separated by attack families.
           </p>
         </div>
-        <button
-          onClick={fetchEvaluation}
-          className="px-3 py-1.5 rounded-lg border border-[#E5E9EF] bg-[#FFFFFF] hover:bg-[#F8F9FB] text-xs font-medium text-[#202631] flex items-center gap-1.5 shadow-2xs cursor-pointer"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchEvaluation}
+            disabled={runningBenchmark}
+            className="px-3 py-1.5 rounded-lg border border-[#E5E9EF] bg-[#FFFFFF] hover:bg-[#F8F9FB] text-xs font-medium text-[#202631] flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Refresh Data</span>
+          </button>
+          <button
+            onClick={handleRunBenchmark}
+            disabled={runningBenchmark}
+            className="px-3 py-1.5 rounded-lg bg-[#4263A6] hover:bg-[#34518C] text-xs font-medium text-white flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+          >
+            <Zap className={`w-3.5 h-3.5 ${runningBenchmark ? 'animate-spin' : ''}`} />
+            <span>{runningBenchmark ? 'Running Live Benchmark...' : 'Run Live Benchmark'}</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Metric Cards */}

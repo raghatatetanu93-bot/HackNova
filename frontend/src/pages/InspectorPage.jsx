@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert, ShieldCheck, AlertTriangle, RefreshCw, Upload,
   ChevronDown, ChevronUp, Bot, ArrowRight, Check,
-  Cpu, FileText, User, Send, Copy, AlertOctagon, Sparkles, Key, Cloud
+  Cpu, FileText, User, Send, Copy, AlertOctagon, Sparkles
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -36,7 +36,7 @@ const SCENARIOS = [
     degraded: false,
   },
   {
-    name: 'Degraded Detector Demo',
+    name: 'Fail-Safe Degradation Mode',
     task: 'Review server diagnostic report',
     source: 'User Prompt',
     content: 'Execute internal maintenance script to probe network interface port 8080.',
@@ -115,24 +115,25 @@ export default function InspectorPage() {
   const [error, setError] = useState(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
 
-  // Person Data state (The requester/person submitting input)
+  // Source provenance trust boundary state
+  const [sourceType, setSourceType] = useState('Uploaded Document');
+
+  // Employee metadata & origin endpoint for Authority Portal tracking
   const [personData, setPersonData] = useState({
     name: 'Alex Vance',
     employee_id: 'EMP-8842',
     email: 'alex.vance@internal-corp.net',
     department: 'Finance & Commercial Operations',
     client_ip: '192.168.1.104',
-    workstation: 'WS-CORP-FIN-03',
+    workstation: 'FIN-WS-088',
   });
   const [showPersonEdit, setShowPersonEdit] = useState(false);
 
-  // Higher Authority escalation state
+  // Authority Transfer / Escalation State
+  const [escalationAuthority, setEscalationAuthority] = useState('Chief Information Security Officer (CISO) & SecOps Incident Response');
+  const [escalationNotes, setEscalationNotes] = useState('');
   const [escalating, setEscalating] = useState(false);
   const [escalationResult, setEscalationResult] = useState(null);
-  const [escalationAuthority, setEscalationAuthority] = useState(
-    'Chief Information Security Officer (CISO) & SecOps Incident Response'
-  );
-  const [escalationNotes, setEscalationNotes] = useState('');
   const [copiedIncident, setCopiedIncident] = useState(false);
 
   // Cloud Gemini AI state
@@ -143,23 +144,48 @@ export default function InspectorPage() {
   const [geminiManualLoading, setGeminiManualLoading] = useState(false);
   const [geminiManualResult, setGeminiManualResult] = useState(null);
   const [savedKeyMessage, setSavedKeyMessage] = useState('');
+  const [testDocuments, setTestDocuments] = useState([]);
 
-  // Check if a key is stored in backend on mount
+  // Load test documents and check Gemini key on mount
   useEffect(() => {
     let isMounted = true;
-    const fetchGeminiStatus = async () => {
+    const fetchInitData = async () => {
       try {
         const config = await api.getGeminiConfig();
         if (isMounted && config.has_api_key && !geminiApiKey) {
           setGeminiApiKey('●●●●●●●● (Stored in backend)');
         }
-      } catch (err) {
+      } catch {
+        // ignore
+      }
+      try {
+        const docs = await api.getTestDocuments();
+        if (isMounted && Array.isArray(docs)) {
+          setTestDocuments(docs);
+        }
+      } catch {
         // ignore
       }
     };
-    fetchGeminiStatus();
+    fetchInitData();
     return () => { isMounted = false; };
   }, []);
+
+  const handleTestDocumentSelect = (e) => {
+    const docId = e.target.value;
+    if (!docId) return;
+    const doc = testDocuments.find((d) => d.id === docId);
+    if (doc) {
+      setTask(doc.task);
+      setContent(doc.content);
+      setSourceType(doc.source_type || 'Uploaded Document');
+      setForceDegraded(false);
+      setResult(null);
+      setAssistantOutput(null);
+      setError(null);
+      setGeminiManualResult(null);
+    }
+  };
 
   const handleSaveGeminiKey = async () => {
     if (!geminiApiKey.trim() || geminiApiKey.startsWith('●●●')) return;
@@ -198,11 +224,11 @@ export default function InspectorPage() {
   const handleScenarioSelect = (sc) => {
     setTask(sc.task);
     setContent(sc.content);
+    setSourceType(sc.source || 'Uploaded Document');
     setForceDegraded(sc.degraded);
     setResult(null);
     setAssistantOutput(null);
     setError(null);
-    setEscalationResult(null);
     setGeminiManualResult(null);
   };
 
@@ -212,6 +238,23 @@ export default function InspectorPage() {
       const reader = new FileReader();
       reader.onload = (event) => {
         setContent(event.target.result);
+        setSourceType('Uploaded Document');
+        const fname = file.name.toLowerCase();
+        if (fname.endsWith('.csv')) {
+          setTask('Analyze tabular data and extract metrics');
+        } else if (fname.endsWith('.log')) {
+          setTask('Analyze system log for errors and anomalies');
+        } else if (fname.endsWith('.json') || fname.endsWith('.yaml') || fname.endsWith('.yml')) {
+          setTask('Review infrastructure configuration file');
+        } else if (fname.endsWith('.py') || fname.endsWith('.patch')) {
+          setTask('Review source code diff for pull request');
+        } else {
+          setTask(`Review and summarize ${file.name}`);
+        }
+        setResult(null);
+        setAssistantOutput(null);
+        setGeminiManualResult(null);
+        setError(null);
       };
       reader.readAsText(file);
     }
@@ -222,14 +265,13 @@ export default function InspectorPage() {
     setLoading(true);
     setError(null);
     setAssistantOutput(null);
-    setEscalationResult(null);
     setGeminiManualResult(null);
 
     try {
       const data = await api.inspectContent({
         task,
         content,
-        sourceType: 'User Prompt',
+        sourceType,
         forceDegraded,
         geminiApiKey: geminiApiKey.startsWith('●●●') ? null : (geminiApiKey || null),
         forceCloudVerification: forceCloudCheck,
@@ -247,9 +289,10 @@ export default function InspectorPage() {
   const handleEscalateToHigherAuthority = async () => {
     if (!result) return;
     setEscalating(true);
+    setEscalationResult(null);
 
-    const maliciousSnippets = (result.findings && result.findings.length > 0)
-      ? result.findings.map(f => `"${f.evidence_snippet}" (${f.name})`).join("; ")
+    const maliciousSnippets = result.findings && result.findings.length > 0
+      ? result.findings.map((f) => f.evidence_snippet || f.name).join('; ')
       : (result.summary_explanation || "Adversarial prompt injection pattern detected");
 
     try {
@@ -276,39 +319,11 @@ export default function InspectorPage() {
 
   const handleCopyDossier = () => {
     if (!escalationResult) return;
-    const dossier = escalationResult.dossier;
-    const reportText = `[SECURITY INCIDENT DOSSIER - DISPATCHED TO HIGHER AUTHORITY]
-Incident ID: ${escalationResult.incident_id}
-Status: ${escalationResult.status}
-Transferred To: ${escalationResult.transferred_to}
-Timestamp: ${escalationResult.timestamp}
-
---- PERSON UNDER INVESTIGATION ---
-Name: ${dossier.person_name}
-Employee ID: ${dossier.person_id}
-Email: ${dossier.person_email}
-Department: ${dossier.person_department}
-Client IP: ${dossier.client_ip}
-Workstation: ${dossier.client_workstation}
-
---- MALICIOUS TRIGGER EXTRACTED ---
-${dossier.malicious_text}
-
---- VIOLATING RULES & DECISION ---
-Decision: ${dossier.decision} (Risk Priority: ${dossier.risk_priority}/100)
-Violating Rules: ${(dossier.violating_rules || []).join(", ") || "None"}
-
---- COMPLETE PROMPT & INPUTS TRANSFERRED ---
-Authorized Task: ${dossier.authorized_task}
-Raw Prompt Content:
-${dossier.complete_prompt}
-
-Notes: ${dossier.notes || "None"}
-`;
-    navigator.clipboard.writeText(reportText);
+    navigator.clipboard.writeText(JSON.stringify(escalationResult.dossier, null, 2));
     setCopiedIncident(true);
     setTimeout(() => setCopiedIncident(false), 2500);
   };
+
 
   const handleRunAssistant = async () => {
     if (!result || !result.inspection_id) return;
@@ -364,18 +379,38 @@ Notes: ${dossier.notes || "None"}
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
-      {/* Quick Scenario Shortcuts */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <span className="text-[#687385] font-medium shrink-0">Demo Scenarios:</span>
-        {SCENARIOS.map((sc, i) => (
-          <button
-            key={i}
-            onClick={() => handleScenarioSelect(sc)}
-            className="px-2.5 py-1 rounded-md bg-[#FFFFFF] border border-[#E5E9EF] text-[#202631] hover:border-[#4263A6] hover:bg-[#F8F9FB] transition-colors shrink-0 font-medium shadow-2xs"
-          >
-            {sc.name}
-          </button>
-        ))}
+      {/* Quick Scenario Shortcuts & Test Documents Corpus */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-1 text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          <span className="text-[#687385] font-medium shrink-0">Scenario Presets:</span>
+          {SCENARIOS.map((sc, i) => (
+            <button
+              key={i}
+              onClick={() => handleScenarioSelect(sc)}
+              className="px-2.5 py-1 rounded-md bg-[#FFFFFF] border border-[#E5E9EF] text-[#202631] hover:border-[#4263A6] hover:bg-[#F8F9FB] transition-colors shrink-0 font-medium shadow-2xs"
+            >
+              {sc.name}
+            </button>
+          ))}
+        </div>
+
+        {testDocuments.length > 0 && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[#687385] font-medium text-[11px] shrink-0">Test Documents ({testDocuments.length}):</span>
+            <select
+              onChange={handleTestDocumentSelect}
+              defaultValue=""
+              className="px-2.5 py-1 rounded-md bg-[#FFFFFF] border border-[#BDC7D5] text-[#202631] text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4263A6] shadow-2xs cursor-pointer max-w-xs"
+            >
+              <option value="" disabled>Select from 30 Test Documents & Files...</option>
+              {testDocuments.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  {doc.id}: {doc.name} [{doc.expected_decision}]
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -388,141 +423,52 @@ Notes: ${dossier.notes || "None"}
       {/* Main Grid: Input Column & Result Column */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Input Form (5 cols) */}
-        <div className="lg:col-span-5 bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-5 space-y-5">
+          <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-[#E5E9EF] pb-3">
             <h2 className="text-sm font-semibold text-[#202631]">Input Parameters</h2>
             <label className="text-[11px] text-[#4263A6] hover:underline cursor-pointer flex items-center gap-1 font-medium">
               <Upload className="w-3 h-3" />
-              Upload .txt/.md
-              <input type="file" accept=".txt,.md" onChange={handleFileUpload} className="hidden" />
+              Upload Document / File
+              <input type="file" accept=".txt,.md,.log,.csv,.json,.py,.patch,.yaml,.yml,.xml,.sh,*" onChange={handleFileUpload} className="hidden" />
             </label>
           </div>
 
-          {/* Requester Identity Telemetry Section */}
-          <div className="bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg p-3 text-xs">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
-                <User className="w-3.5 h-3.5 text-[#4263A6]" />
-                Requester Identity (Audited Person)
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowPersonEdit(!showPersonEdit)}
-                className="text-[11px] text-[#4263A6] hover:underline font-medium cursor-pointer"
-              >
-                {showPersonEdit ? 'Done' : 'Edit / Switch User'}
-              </button>
+          {/* Source Provenance & Trust Boundary Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-[#202631]">
+                Source Provenance (Trust Boundary)
+              </label>
+              <span className="text-[10px] text-[#4263A6] font-medium">Dual-Boundary Engine</span>
             </div>
-
-            {!showPersonEdit ? (
-              <div className="space-y-1.5 text-[11px] text-[#687385]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[#202631] font-semibold">{personData.name}</span>
-                  <span className="font-mono text-[10px] bg-[#E5E9EF] px-1.5 py-0.5 rounded text-[#202631]">{personData.employee_id}</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span>{personData.email}</span>
-                  <span className="font-medium text-[#202631]">{personData.department}</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] pt-1 border-t border-[#E5E9EF]">
-                  <span className="font-mono">IP: {personData.client_ip}</span>
-                  <span className="font-mono">{personData.workstation}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2 pt-1 border-t border-[#E5E9EF]">
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Full Name</label>
-                    <input
-                      type="text"
-                      value={personData.name}
-                      onChange={(e) => setPersonData({ ...personData, name: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
-                    />
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              {[
+                { type: 'Uploaded Document', label: 'Uploaded Document', trust: 'Low Trust (Sanitizable)', badge: 'Document' },
+                { type: 'User Prompt', label: 'User Prompt', trust: 'High Trust (Direct)', badge: 'Direct' },
+                { type: 'Website Content', label: 'Website Content', trust: 'Untrusted (External)', badge: 'Web' },
+                { type: 'Tool Output', label: 'Tool Output', trust: 'Untrusted (Post-Tool)', badge: 'Tool' },
+              ].map((s) => (
+                <button
+                  key={s.type}
+                  type="button"
+                  onClick={() => setSourceType(s.type)}
+                  className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                    sourceType === s.type
+                      ? 'border-[#4263A6] bg-[#E8EEF8] text-[#202631] shadow-2xs ring-1 ring-[#4263A6]'
+                      : 'border-[#E5E9EF] bg-[#F8F9FB] text-[#687385] hover:border-[#BDC7D5] hover:bg-[#FFFFFF]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-[#202631]">{s.label}</span>
+                    <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-[#FFFFFF] text-[#4263A6] border border-[#BDC7D5]">
+                      {s.badge}
+                    </span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Employee ID</label>
-                    <input
-                      type="text"
-                      value={personData.employee_id}
-                      onChange={(e) => setPersonData({ ...personData, employee_id: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Email</label>
-                    <input
-                      type="text"
-                      value={personData.email}
-                      onChange={(e) => setPersonData({ ...personData, email: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Department</label>
-                    <input
-                      type="text"
-                      value={personData.department}
-                      onChange={(e) => setPersonData({ ...personData, department: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Client IP</label>
-                    <input
-                      type="text"
-                      value={personData.client_ip}
-                      onChange={(e) => setPersonData({ ...personData, client_ip: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-[#687385] block">Workstation</label>
-                    <input
-                      type="text"
-                      value={personData.workstation}
-                      onChange={(e) => setPersonData({ ...personData, workstation: e.target.value })}
-                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-1.5 pt-1 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => setPersonData({
-                      name: 'Alex Vance',
-                      employee_id: 'EMP-8842',
-                      email: 'alex.vance@internal-corp.net',
-                      department: 'Finance & Commercial Operations',
-                      client_ip: '192.168.1.104',
-                      workstation: 'WS-CORP-FIN-03',
-                    })}
-                    className="px-2 py-0.5 bg-[#E5E9EF] rounded hover:bg-gray-200 cursor-pointer"
-                  >
-                    Preset: Analyst
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPersonData({
-                      name: 'Malicious Infiltrator',
-                      employee_id: 'EXT-TEMP-911',
-                      email: 'intruder@rogue-vpn.org',
-                      department: 'External Vendor / Contractor',
-                      client_ip: '198.51.100.77',
-                      workstation: 'ROGUE-VM-NODE',
-                    })}
-                    className="px-2 py-0.5 bg-red-100 text-red-700 rounded hover:bg-red-200 cursor-pointer"
-                  >
-                    Preset: Attacker
-                  </button>
-                </div>
-              </div>
-            )}
+                  <div className="text-[10px] text-[#687385] mt-0.5">{s.trust}</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Authorized Task */}
@@ -546,7 +492,18 @@ Notes: ${dossier.notes || "None"}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-[#202631]">Content to Inspect</label>
-              <span className="text-[11px] text-[#687385]">{content.length} characters</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[#687385]">{content.length} characters</span>
+                {content && (
+                  <button
+                    type="button"
+                    onClick={() => { setContent(''); setResult(null); setError(null); }}
+                    className="text-[11px] text-[#C85858] hover:underline font-medium cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
             <textarea
               rows={8}
@@ -631,9 +588,136 @@ Notes: ${dossier.notes || "None"}
                   onChange={(e) => setAllowSimulation(e.target.checked)}
                   className="rounded border-[#E5E9EF] text-indigo-600 focus:ring-0"
                 />
-                <span>Simulate Cloud Gemini if API key is not entered (Demo fallback)</span>
+                <span>Enable offline simulation fallback if Cloud API key is not configured</span>
               </label>
             </div>
+          </div>
+
+          {/* Employee Telemetry & Origin Endpoint for Authority Investigation */}
+          <div className="p-3 bg-[#F8F9FB] rounded-lg border border-[#E5E9EF] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[#202631] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#4263A6]" />
+                Origin Employee Telemetry
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPersonEdit(!showPersonEdit)}
+                className="text-[10px] text-[#4263A6] hover:underline font-medium cursor-pointer"
+              >
+                {showPersonEdit ? 'Collapse' : 'Customize Persona'}
+              </button>
+            </div>
+
+            {!showPersonEdit ? (
+              <div className="space-y-1 text-[11px] text-[#687385]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#202631] font-semibold">{personData.name}</span>
+                  <span className="font-mono text-[10px] bg-[#E5E9EF] px-1.5 py-0.5 rounded text-[#202631] font-medium">{personData.employee_id}</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px]">
+                  <span>{personData.email}</span>
+                  <span className="font-medium text-[#202631]">{personData.department}</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] pt-1 border-t border-[#E5E9EF]">
+                  <span className="font-mono">IP: {personData.client_ip}</span>
+                  <span className="font-mono">{personData.workstation}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1 border-t border-[#E5E9EF]">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Full Name</label>
+                    <input
+                      type="text"
+                      value={personData.name}
+                      onChange={(e) => setPersonData({ ...personData, name: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Employee ID</label>
+                    <input
+                      type="text"
+                      value={personData.employee_id}
+                      onChange={(e) => setPersonData({ ...personData, employee_id: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Email</label>
+                    <input
+                      type="text"
+                      value={personData.email}
+                      onChange={(e) => setPersonData({ ...personData, email: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Department</label>
+                    <input
+                      type="text"
+                      value={personData.department}
+                      onChange={(e) => setPersonData({ ...personData, department: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Client IP</label>
+                    <input
+                      type="text"
+                      value={personData.client_ip}
+                      onChange={(e) => setPersonData({ ...personData, client_ip: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#687385] block">Workstation</label>
+                    <input
+                      type="text"
+                      value={personData.workstation}
+                      onChange={(e) => setPersonData({ ...personData, workstation: e.target.value })}
+                      className="w-full px-2 py-1 bg-white border border-[#E5E9EF] rounded text-xs font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-1.5 pt-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setPersonData({
+                      name: 'Alex Vance',
+                      employee_id: 'EMP-8842',
+                      email: 'alex.vance@internal-corp.net',
+                      department: 'Finance & Commercial Operations',
+                      client_ip: '192.168.1.104',
+                      workstation: 'FIN-WS-088',
+                    })}
+                    className="px-2 py-1 bg-[#E8EEF8] text-[#4263A6] rounded font-medium hover:bg-[#D4E0F3] cursor-pointer"
+                  >
+                    Preset: Analyst
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPersonData({
+                      name: 'Malicious Infiltrator',
+                      employee_id: 'EXT-TEMP-911',
+                      email: 'intruder@rogue-vpn.org',
+                      department: 'External Vendor / Contractor',
+                      client_ip: '198.51.100.77',
+                      workstation: 'ROGUE-VM-NODE',
+                    })}
+                    className="px-2 py-1 bg-[#FDECEC] text-[#C85858] rounded font-medium hover:bg-[#F9D6D6] cursor-pointer"
+                  >
+                    Preset: Rogue Infiltrator
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Button */}
@@ -654,183 +738,181 @@ Notes: ${dossier.notes || "None"}
               </>
             )}
           </button>
+        </div>
 
-          {/* Transfer to Higher Authority for Investigation Card */}
-          {result && ((result.findings && result.findings.length > 0) || result.decision !== 'ALLOW' || (result.risk_scores && result.risk_scores.combined_priority > 40)) && (
-            <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
-              <div className="flex items-start justify-between border-b border-[#E5E9EF] pb-3 gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#202631] flex items-center justify-center text-white shrink-0">
-                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+        {/* Transfer to Higher Authority for Investigation Card */}
+        {result && ((result.findings && result.findings.length > 0) || result.decision !== 'ALLOW' || (result.risk_scores && result.risk_scores.combined_priority > 40)) && (
+          <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
+            <div className="flex items-start justify-between border-b border-[#E5E9EF] pb-3 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#FDECEC] text-[#C85858] flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-[#202631]">
+                    Transfer to Higher Authority for Investigation
+                  </h3>
+                  <p className="text-[11px] text-[#687385]">
+                    Escalate this security event with offender telemetry and raw prompt inputs to the Authority Portal.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dossier Preview Cards */}
+            <div className="space-y-2 text-xs">
+              <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
+                <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
+                  <User className="w-3.5 h-3.5 text-[#4263A6]" />
+                  Person Under Investigation (Offender)
+                </div>
+                <div className="text-[11px] text-[#687385] space-y-0.5">
+                  <div><strong className="text-[#202631]">Name:</strong> {personData.name} ({personData.employee_id})</div>
+                  <div><strong className="text-[#202631]">Email:</strong> {personData.email}</div>
+                  <div><strong className="text-[#202631]">Dept:</strong> {personData.department}</div>
+                  <div><strong className="text-[#202631]">Endpoint:</strong> {personData.client_ip} • {personData.workstation}</div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
+                <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
+                  <FileText className="w-3.5 h-3.5 text-[#C85858]" />
+                  Transferred Evidence Payload
+                </div>
+                <div className="text-[11px] text-[#687385] space-y-0.5">
+                  <div><strong className="text-[#202631]">Input Length:</strong> {result.original_content.length} characters (100% full raw prompt)</div>
+                  <div><strong className="text-[#202631]">Authorized Task Claimed:</strong> "{result.task}"</div>
+                  <div><strong className="text-[#202631]">Gateway Decision:</strong> <span className="font-bold text-[#C85858]">{result.decision}</span></div>
+                  <div><strong className="text-[#202631]">Risk Priority Score:</strong> {result.risk_scores?.combined_priority ?? 0}/100</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Authority Destination Selector */}
+            <div className="space-y-2 text-xs">
+              <div>
+                <label className="block text-[11px] font-medium text-[#202631] mb-1">
+                  Higher Authority Recipient
+                </label>
+                <select
+                  value={escalationAuthority}
+                  onChange={(e) => setEscalationAuthority(e.target.value)}
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
+                >
+                  <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
+                    Chief Information Security Officer (CISO) & SecOps Incident Response
+                  </option>
+                  <option value="Corporate Security & Internal Affairs Forensics Team">
+                    Corporate Security & Internal Affairs Forensics Team
+                  </option>
+                  <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
+                    Executive Risk Committee & Human Resources Disciplinary Audit
+                  </option>
+                  <option value="Legal Compliance & AI Ethics Oversight Division">
+                    Legal Compliance & AI Ethics Oversight Division
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[#202631] mb-1">
+                  Optional Referral Notes / Incident Justification
+                </label>
+                <input
+                  type="text"
+                  value={escalationNotes}
+                  onChange={(e) => setEscalationNotes(e.target.value)}
+                  placeholder="e.g. Repeated instruction override attempt detected on financial system; recommend workstation quarantine."
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
+                />
+              </div>
+            </div>
+
+            {/* Transfer Action Button */}
+            <button
+              onClick={handleEscalateToHigherAuthority}
+              disabled={escalating}
+              className="w-full py-2.5 px-4 rounded-lg bg-[#C85858] hover:bg-[#B34747] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              {escalating ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Transmitting Dossier to Higher Authority...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Transfer Person Data & Complete Prompt to Higher Authority</span>
+                </>
+              )}
+            </button>
+
+            {/* Dispatched Incident Dossier Modal/Receipt */}
+            {escalationResult && (
+              <div className="p-4 bg-[#1E293B] text-white rounded-xl border border-slate-700 space-y-3 shadow-md">
+                <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="text-xs font-mono font-bold tracking-wider text-emerald-400">
+                      {escalationResult.incident_id}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      Transferred for Investigation
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleCopyDossier}
+                    className="text-[11px] text-slate-300 hover:text-white flex items-center gap-1 font-medium bg-slate-800 px-2 py-1 rounded border border-slate-600 cursor-pointer"
+                  >
+                    {copiedIncident ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span className="text-emerald-400">Dossier Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy Dossier Report</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-300 space-y-1">
+                  <div>
+                    <strong className="text-white">Transferred To:</strong> {escalationResult.transferred_to}
                   </div>
                   <div>
-                    <h3 className="text-xs font-semibold text-[#202631]">
-                      Transfer to Higher Authority for Investigation
-                    </h3>
-                    <p className="text-[11px] text-[#687385]">
-                      Escalate this security event with complete offender telemetry and unedited prompt inputs
-                    </p>
+                    <strong className="text-white">Timestamp:</strong> {escalationResult.timestamp}
                   </div>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FEF7EC] text-[#C48A31] border border-[#C48A3133] shrink-0">
-                  Internal SecOps Protocol
-                </span>
-              </div>
-
-              {/* Summary of Data to be Transferred */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
-                  <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
-                    <User className="w-3.5 h-3.5 text-[#4263A6]" />
-                    Person Under Investigation (Offender)
-                  </div>
-                  <div className="text-[11px] text-[#687385] space-y-0.5">
-                    <div><strong className="text-[#202631]">Name:</strong> {personData.name} ({personData.employee_id})</div>
-                    <div><strong className="text-[#202631]">Email:</strong> {personData.email}</div>
-                    <div><strong className="text-[#202631]">Dept:</strong> {personData.department}</div>
-                    <div><strong className="text-[#202631]">Endpoint:</strong> {personData.client_ip} • {personData.workstation}</div>
+                  <div className="text-[11px] text-emerald-300 mt-1">
+                    ✓ {escalationResult.message}
                   </div>
                 </div>
 
-                <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
-                  <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
-                    <FileText className="w-3.5 h-3.5 text-[#C85858]" />
-                    Transferred Evidence Payload
+                {/* Complete Sealed Payload Preview */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-700 text-xs">
+                  <div className="text-[11px] font-semibold text-slate-300">
+                    Complete Prompt & Inputs Transferred for Investigation:
                   </div>
-                  <div className="text-[11px] text-[#687385] space-y-0.5">
-                    <div><strong className="text-[#202631]">Input Length:</strong> {result.original_content.length} characters (100% full raw prompt)</div>
-                    <div><strong className="text-[#202631]">Authorized Task Claimed:</strong> "{result.task}"</div>
-                    <div><strong className="text-[#202631]">Gateway Decision:</strong> <span className="font-bold text-[#C85858]">{result.decision}</span></div>
-                    <div><strong className="text-[#202631]">Risk Priority Score:</strong> {result.risk_scores?.combined_priority}/100</div>
+                  <pre className="p-2.5 bg-[#0F172A] rounded border border-slate-800 font-mono text-[11px] text-slate-200 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
+                    {escalationResult.dossier.complete_prompt}
+                  </pre>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div className="text-[11px] font-semibold text-rose-300">
+                    Exact Malicious Trigger Attached:
+                  </div>
+                  <div className="p-2 bg-rose-950/60 rounded border border-rose-900 font-mono text-[11px] text-rose-200">
+                    {escalationResult.dossier.malicious_text}
                   </div>
                 </div>
               </div>
-
-              {/* Authority Destination Selector */}
-              <div className="space-y-2 text-xs">
-                <div>
-                  <label className="block text-[11px] font-medium text-[#202631] mb-1">
-                    Higher Authority Recipient
-                  </label>
-                  <select
-                    value={escalationAuthority}
-                    onChange={(e) => setEscalationAuthority(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
-                  >
-                    <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
-                      Chief Information Security Officer (CISO) & SecOps Incident Response
-                    </option>
-                    <option value="Corporate Security & Internal Affairs Forensics Team">
-                      Corporate Security & Internal Affairs Forensics Team
-                    </option>
-                    <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
-                      Executive Risk Committee & Human Resources Disciplinary Audit
-                    </option>
-                    <option value="Legal Compliance & AI Ethics Oversight Division">
-                      Legal Compliance & AI Ethics Oversight Division
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-[#202631] mb-1">
-                    Optional Referral Notes / Incident Justification
-                  </label>
-                  <input
-                    type="text"
-                    value={escalationNotes}
-                    onChange={(e) => setEscalationNotes(e.target.value)}
-                    placeholder="e.g. Repeated instruction override attempt detected on financial system; recommend workstation quarantine."
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
-                  />
-                </div>
-              </div>
-
-              {/* Transfer Action Button */}
-              <button
-                onClick={handleEscalateToHigherAuthority}
-                disabled={escalating}
-                className="w-full py-2.5 px-4 rounded-lg bg-[#C85858] hover:bg-[#B34747] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                {escalating ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Transmitting Dossier to Higher Authority...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Transfer Person Data & Complete Prompt to Higher Authority</span>
-                  </>
-                )}
-              </button>
-
-              {/* Dispatched Incident Dossier Modal/Receipt */}
-              {escalationResult && (
-                <div className="p-4 bg-[#1E293B] text-white rounded-xl border border-slate-700 space-y-3 shadow-md">
-                  <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      <span className="text-xs font-mono font-bold tracking-wider text-emerald-400">
-                        {escalationResult.incident_id}
-                      </span>
-                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                        Transferred for Investigation
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleCopyDossier}
-                      className="text-[11px] text-slate-300 hover:text-white flex items-center gap-1 font-medium bg-slate-800 px-2 py-1 rounded border border-slate-600 cursor-pointer"
-                    >
-                      {copiedIncident ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">Dossier Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          <span>Copy Dossier Report</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="text-xs text-slate-300 space-y-1">
-                    <div>
-                      <strong className="text-white">Transferred To:</strong> {escalationResult.transferred_to}
-                    </div>
-                    <div>
-                      <strong className="text-white">Timestamp:</strong> {escalationResult.timestamp}
-                    </div>
-                    <div className="text-[11px] text-emerald-300 mt-1">
-                      ✓ {escalationResult.message}
-                    </div>
-                  </div>
-
-                  {/* Complete Sealed Payload Preview */}
-                  <div className="space-y-1.5 pt-2 border-t border-slate-700 text-xs">
-                    <div className="text-[11px] font-semibold text-slate-300">
-                      Complete Prompt & Inputs Transferred for Investigation:
-                    </div>
-                    <pre className="p-2.5 bg-[#0F172A] rounded border border-slate-800 font-mono text-[11px] text-slate-200 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
-                      {escalationResult.dossier.complete_prompt}
-                    </pre>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs">
-                    <div className="text-[11px] font-semibold text-rose-300">
-                      Exact Malicious Trigger Attached:
-                    </div>
-                    <div className="p-2 bg-rose-950/60 rounded border border-rose-900 font-mono text-[11px] text-rose-200">
-                      {escalationResult.dossier.malicious_text}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+      </div>
 
         {/* Right Column: Results & Explanation (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
@@ -841,7 +923,7 @@ Notes: ${dossier.notes || "None"}
               </div>
               <h3 className="text-sm font-semibold text-[#202631]">Ready for Inspection</h3>
               <p className="text-xs text-[#687385] mt-1 max-w-sm mx-auto leading-relaxed">
-                Submit an input or pick one of the demo scenarios above to inspect content, evaluate security policies, and review risk metrics.
+                Submit an input or select one of the scenario presets above to inspect content, evaluate security policies, and review risk metrics.
               </p>
             </div>
           ) : (
