@@ -980,11 +980,11 @@ Notes: ${dossier.notes || "None"}
                 const threatScore = effectiveGemini?.threat_score ?? 0;
 
                 return (
-                  <div className="bg-[#FFFFFF] border-2 border-indigo-200 rounded-xl p-5 shadow-xs space-y-4">
+                  <div className="bg-[#FFFFFF] border border-[#E5E9EF] hover:border-indigo-200 rounded-xl p-5 shadow-xs transition-colors space-y-4">
                     {/* Header */}
                     <div className="flex items-center justify-between border-b border-[#E5E9EF] pb-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-xs">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xs shrink-0">
                           <Sparkles className="w-4 h-4" />
                         </div>
                         <div>
@@ -992,11 +992,12 @@ Notes: ${dossier.notes || "None"}
                             <h3 className="text-xs font-semibold text-[#202631]">
                               Cloud AI Security Verification (Google Gemini)
                             </h3>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-200/80 font-medium inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                               {effectiveGemini?.model || 'gemini-3.5-flash'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#687385]">
+                          <p className="text-[11px] text-[#687385] mt-0.5">
                             {isConsulted
                               ? (effectiveGemini?.status === 'doubt_resolved'
                                   ? 'Triggered automatically: Classifier doubt resolved via Cloud Gemini multi-tier reasoning'
@@ -1006,18 +1007,12 @@ Notes: ${dossier.notes || "None"}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {isConsulted ? (
-                          <span className="px-2.5 py-1 rounded text-[10px] font-bold tracking-wide uppercase bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            Verified by Cloud AI
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                            Not Auto-Triggered (High Local Certainty)
-                          </span>
-                        )}
-                      </div>
+                      {isConsulted && (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 shrink-0">
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          Verified by Gemini
+                        </span>
+                      )}
                     </div>
 
                     {isConsulted ? (
@@ -1145,25 +1140,32 @@ Notes: ${dossier.notes || "None"}
                         </div>
                       </div>
                     ) : (
-                      <div className="p-4 bg-indigo-50/40 border border-indigo-100 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-indigo-950 flex items-center gap-1.5 text-xs">
-                            <Cloud className="w-4 h-4 text-indigo-600" />
-                            On-Demand Cloud AI Security Verification
+                      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/70 via-slate-50/60 to-violet-50/60 border border-indigo-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                            <Sparkles className="w-4 h-4" />
                           </div>
-                          <p className="text-[11px] text-indigo-900/80 leading-relaxed max-w-xl">
-                            Local inspection heuristics & ML filters resolved this prompt with high certainty. You can still send this prompt to Google Gemini Cloud AI to confirm threat level and obtain deep forensic breakdown.
-                          </p>
+                          <div className="space-y-1">
+                            <div className="text-xs font-semibold text-[#1E293B] flex items-center gap-2">
+                              <span>On-Demand Cloud Forensic Verification</span>
+                              <span className="text-[10px] font-medium text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-full border border-indigo-200/50">
+                                Ready
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[#64748B] leading-relaxed max-w-xl">
+                              Local heuristics & ML filters resolved this prompt with high certainty. You can consult Google Gemini Cloud AI anytime to verify threat levels, evaluate edge cases, and inspect detailed reasoning.
+                            </p>
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={handleManualGeminiVerification}
                           disabled={geminiManualLoading}
-                          className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 text-xs shrink-0 transition-colors shadow-xs"
+                          className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-medium flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-xs shrink-0 transition-all shadow-xs hover:shadow-sm"
                         >
                           {geminiManualLoading ? (
                             <>
-                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                               <span>Consulting Gemini Cloud AI...</span>
                             </>
                           ) : (
