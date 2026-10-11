@@ -15,7 +15,7 @@ from backend.app.schemas import (
     GeminiVerificationResult, PersonData
 )
 from backend.app.normalization import normalize_text
-from backend.app.rules import evaluate_rules
+from backend.app.rules import evaluate_rules, is_benign_quotation_or_research
 from backend.app.detector import get_detector
 from backend.app.protected_values import inspect_protected_values, mask_text
 from backend.app.intent_engine import analyze_intent_drift
@@ -153,7 +153,7 @@ def run_inspection_pipeline(req: InspectRequest) -> InspectResponse:
     has_doubt = (
         decision == "ESCALATE"
         or ml_status == "degraded"
-        or (0.25 <= ml_prob <= 0.70 and len(rule_findings) == 0 and len(protected_findings) == 0)
+        or (0.25 <= ml_prob <= 0.70 and len(rule_findings) == 0 and len(protected_findings) == 0 and not is_benign_quotation_or_research(raw_text))
         or (intent_mismatch and len(rule_findings) == 0)
         or bool(req.force_cloud_verification)
     )
