@@ -654,6 +654,182 @@ Notes: ${dossier.notes || "None"}
               </>
             )}
           </button>
+
+          {/* Transfer to Higher Authority for Investigation Card */}
+          {result && ((result.findings && result.findings.length > 0) || result.decision !== 'ALLOW' || (result.risk_scores && result.risk_scores.combined_priority > 40)) && (
+            <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
+              <div className="flex items-start justify-between border-b border-[#E5E9EF] pb-3 gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#202631] flex items-center justify-center text-white shrink-0">
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-[#202631]">
+                      Transfer to Higher Authority for Investigation
+                    </h3>
+                    <p className="text-[11px] text-[#687385]">
+                      Escalate this security event with complete offender telemetry and unedited prompt inputs
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FEF7EC] text-[#C48A31] border border-[#C48A3133] shrink-0">
+                  Internal SecOps Protocol
+                </span>
+              </div>
+
+              {/* Summary of Data to be Transferred */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
+                  <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
+                    <User className="w-3.5 h-3.5 text-[#4263A6]" />
+                    Person Under Investigation (Offender)
+                  </div>
+                  <div className="text-[11px] text-[#687385] space-y-0.5">
+                    <div><strong className="text-[#202631]">Name:</strong> {personData.name} ({personData.employee_id})</div>
+                    <div><strong className="text-[#202631]">Email:</strong> {personData.email}</div>
+                    <div><strong className="text-[#202631]">Dept:</strong> {personData.department}</div>
+                    <div><strong className="text-[#202631]">Endpoint:</strong> {personData.client_ip} • {personData.workstation}</div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
+                  <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
+                    <FileText className="w-3.5 h-3.5 text-[#C85858]" />
+                    Transferred Evidence Payload
+                  </div>
+                  <div className="text-[11px] text-[#687385] space-y-0.5">
+                    <div><strong className="text-[#202631]">Input Length:</strong> {result.original_content.length} characters (100% full raw prompt)</div>
+                    <div><strong className="text-[#202631]">Authorized Task Claimed:</strong> "{result.task}"</div>
+                    <div><strong className="text-[#202631]">Gateway Decision:</strong> <span className="font-bold text-[#C85858]">{result.decision}</span></div>
+                    <div><strong className="text-[#202631]">Risk Priority Score:</strong> {result.risk_scores?.combined_priority}/100</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Authority Destination Selector */}
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-[11px] font-medium text-[#202631] mb-1">
+                    Higher Authority Recipient
+                  </label>
+                  <select
+                    value={escalationAuthority}
+                    onChange={(e) => setEscalationAuthority(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
+                  >
+                    <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
+                      Chief Information Security Officer (CISO) & SecOps Incident Response
+                    </option>
+                    <option value="Corporate Security & Internal Affairs Forensics Team">
+                      Corporate Security & Internal Affairs Forensics Team
+                    </option>
+                    <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
+                      Executive Risk Committee & Human Resources Disciplinary Audit
+                    </option>
+                    <option value="Legal Compliance & AI Ethics Oversight Division">
+                      Legal Compliance & AI Ethics Oversight Division
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-[#202631] mb-1">
+                    Optional Referral Notes / Incident Justification
+                  </label>
+                  <input
+                    type="text"
+                    value={escalationNotes}
+                    onChange={(e) => setEscalationNotes(e.target.value)}
+                    placeholder="e.g. Repeated instruction override attempt detected on financial system; recommend workstation quarantine."
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
+                  />
+                </div>
+              </div>
+
+              {/* Transfer Action Button */}
+              <button
+                onClick={handleEscalateToHigherAuthority}
+                disabled={escalating}
+                className="w-full py-2.5 px-4 rounded-lg bg-[#C85858] hover:bg-[#B34747] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {escalating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Transmitting Dossier to Higher Authority...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Transfer Person Data & Complete Prompt to Higher Authority</span>
+                  </>
+                )}
+              </button>
+
+              {/* Dispatched Incident Dossier Modal/Receipt */}
+              {escalationResult && (
+                <div className="p-4 bg-[#1E293B] text-white rounded-xl border border-slate-700 space-y-3 shadow-md">
+                  <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-xs font-mono font-bold tracking-wider text-emerald-400">
+                        {escalationResult.incident_id}
+                      </span>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        Transferred for Investigation
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleCopyDossier}
+                      className="text-[11px] text-slate-300 hover:text-white flex items-center gap-1 font-medium bg-slate-800 px-2 py-1 rounded border border-slate-600 cursor-pointer"
+                    >
+                      {copiedIncident ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span className="text-emerald-400">Dossier Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3" />
+                          <span>Copy Dossier Report</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-300 space-y-1">
+                    <div>
+                      <strong className="text-white">Transferred To:</strong> {escalationResult.transferred_to}
+                    </div>
+                    <div>
+                      <strong className="text-white">Timestamp:</strong> {escalationResult.timestamp}
+                    </div>
+                    <div className="text-[11px] text-emerald-300 mt-1">
+                      ✓ {escalationResult.message}
+                    </div>
+                  </div>
+
+                  {/* Complete Sealed Payload Preview */}
+                  <div className="space-y-1.5 pt-2 border-t border-slate-700 text-xs">
+                    <div className="text-[11px] font-semibold text-slate-300">
+                      Complete Prompt & Inputs Transferred for Investigation:
+                    </div>
+                    <pre className="p-2.5 bg-[#0F172A] rounded border border-slate-800 font-mono text-[11px] text-slate-200 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
+                      {escalationResult.dossier.complete_prompt}
+                    </pre>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="text-[11px] font-semibold text-rose-300">
+                      Exact Malicious Trigger Attached:
+                    </div>
+                    <div className="p-2 bg-rose-950/60 rounded border border-rose-900 font-mono text-[11px] text-rose-200">
+                      {escalationResult.dossier.malicious_text}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Results & Explanation (7 cols) */}
@@ -1080,182 +1256,6 @@ Notes: ${dossier.notes || "None"}
                       {renderHighlightedContent(result.original_content, result.findings)}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Transfer to Higher Authority for Investigation Card */}
-              {((result.findings && result.findings.length > 0) || result.decision !== 'ALLOW' || (result.risk_scores && result.risk_scores.combined_priority > 40)) && (
-                <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs space-y-4">
-                  <div className="flex items-start justify-between border-b border-[#E5E9EF] pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#202631] flex items-center justify-center text-white">
-                        <ShieldAlert className="w-4 h-4 text-amber-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-semibold text-[#202631]">
-                          Transfer to Higher Authority for Investigation
-                        </h3>
-                        <p className="text-[11px] text-[#687385]">
-                          Escalate this security event with complete offender telemetry and unedited prompt inputs
-                        </p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FEF7EC] text-[#C48A31] border border-[#C48A3133]">
-                      Internal SecOps Protocol
-                    </span>
-                  </div>
-
-                  {/* Summary of Data to be Transferred */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
-                      <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
-                        <User className="w-3.5 h-3.5 text-[#4263A6]" />
-                        Person Under Investigation (Offender)
-                      </div>
-                      <div className="text-[11px] text-[#687385] space-y-0.5">
-                        <div><strong className="text-[#202631]">Name:</strong> {personData.name} ({personData.employee_id})</div>
-                        <div><strong className="text-[#202631]">Email:</strong> {personData.email}</div>
-                        <div><strong className="text-[#202631]">Dept:</strong> {personData.department}</div>
-                        <div><strong className="text-[#202631]">Endpoint:</strong> {personData.client_ip} • {personData.workstation}</div>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-[#F8F9FB] border border-[#E5E9EF] rounded-lg space-y-1.5">
-                      <div className="font-semibold text-[#202631] flex items-center gap-1.5 text-[11px]">
-                        <FileText className="w-3.5 h-3.5 text-[#C85858]" />
-                        Transferred Evidence Payload
-                      </div>
-                      <div className="text-[11px] text-[#687385] space-y-0.5">
-                        <div><strong className="text-[#202631]">Input Length:</strong> {result.original_content.length} characters (100% full raw prompt)</div>
-                        <div><strong className="text-[#202631]">Authorized Task Claimed:</strong> "{result.task}"</div>
-                        <div><strong className="text-[#202631]">Gateway Decision:</strong> <span className="font-bold text-[#C85858]">{result.decision}</span></div>
-                        <div><strong className="text-[#202631]">Risk Priority Score:</strong> {result.risk_scores?.combined_priority}/100</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Authority Destination Selector */}
-                  <div className="space-y-2 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-medium text-[#202631] mb-1">
-                        Higher Authority Recipient
-                      </label>
-                      <select
-                        value={escalationAuthority}
-                        onChange={(e) => setEscalationAuthority(e.target.value)}
-                        className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
-                      >
-                        <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
-                          Chief Information Security Officer (CISO) & SecOps Incident Response
-                        </option>
-                        <option value="Corporate Security & Internal Affairs Forensics Team">
-                          Corporate Security & Internal Affairs Forensics Team
-                        </option>
-                        <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
-                          Executive Risk Committee & Human Resources Disciplinary Audit
-                        </option>
-                        <option value="Legal Compliance & AI Ethics Oversight Division">
-                          Legal Compliance & AI Ethics Oversight Division
-                        </option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-[#202631] mb-1">
-                        Optional Referral Notes / Incident Justification
-                      </label>
-                      <input
-                        type="text"
-                        value={escalationNotes}
-                        onChange={(e) => setEscalationNotes(e.target.value)}
-                        placeholder="e.g. Repeated instruction override attempt detected on financial system; recommend workstation quarantine."
-                        className="w-full text-xs px-3 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] focus:bg-[#FFFFFF] focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Transfer Action Button */}
-                  <button
-                    onClick={handleEscalateToHigherAuthority}
-                    disabled={escalating}
-                    className="w-full py-2.5 px-4 rounded-lg bg-[#C85858] hover:bg-[#B34747] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
-                  >
-                    {escalating ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Transmitting Dossier to Higher Authority...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Transfer Person Data & Complete Prompt to Higher Authority</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Dispatched Incident Dossier Modal/Receipt */}
-                  {escalationResult && (
-                    <div className="p-4 bg-[#1E293B] text-white rounded-xl border border-slate-700 space-y-3 shadow-md">
-                      <div className="flex items-center justify-between border-b border-slate-700 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <span className="text-xs font-mono font-bold tracking-wider text-emerald-400">
-                            {escalationResult.incident_id}
-                          </span>
-                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">
-                            Transferred for Investigation
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleCopyDossier}
-                          className="text-[11px] text-slate-300 hover:text-white flex items-center gap-1 font-medium bg-slate-800 px-2 py-1 rounded border border-slate-600 cursor-pointer"
-                        >
-                          {copiedIncident ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-emerald-400">Dossier Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy Dossier Report</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="text-xs text-slate-300 space-y-1">
-                        <div>
-                          <strong className="text-white">Transferred To:</strong> {escalationResult.transferred_to}
-                        </div>
-                        <div>
-                          <strong className="text-white">Timestamp:</strong> {escalationResult.timestamp}
-                        </div>
-                        <div className="text-[11px] text-emerald-300 mt-1">
-                          ✓ {escalationResult.message}
-                        </div>
-                      </div>
-
-                      {/* Complete Sealed Payload Preview */}
-                      <div className="space-y-1.5 pt-2 border-t border-slate-700 text-xs">
-                        <div className="text-[11px] font-semibold text-slate-300">
-                          Complete Prompt & Inputs Transferred for Investigation:
-                        </div>
-                        <pre className="p-2.5 bg-[#0F172A] rounded border border-slate-800 font-mono text-[11px] text-slate-200 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
-                          {escalationResult.dossier.complete_prompt}
-                        </pre>
-                      </div>
-
-                      <div className="space-y-1.5 text-xs">
-                        <div className="text-[11px] font-semibold text-rose-300">
-                          Exact Malicious Trigger Attached:
-                        </div>
-                        <div className="p-2 bg-rose-950/60 rounded border border-rose-900 font-mono text-[11px] text-rose-200">
-                          {escalationResult.dossier.malicious_text}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
