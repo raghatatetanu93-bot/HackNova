@@ -1,9 +1,10 @@
 import React from 'react';
-import { Shield, Search, FlaskConical, Sliders, BarChart3, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, Search, FlaskConical, Sliders, BarChart3, Clock, CheckCircle2, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, backendStatus }) {
   const navItems = [
     { id: 'inspector', label: 'Inspector', icon: Search, badge: 'Demo' },
+    { id: 'authority', label: 'Authority Portal', icon: ShieldAlert, badge: 'SecOps' },
     { id: 'attack-lab', label: 'Attack Lab', icon: FlaskConical },
     { id: 'policies', label: 'Policies', icon: Sliders },
     { id: 'evaluation', label: 'Evaluation', icon: BarChart3 },

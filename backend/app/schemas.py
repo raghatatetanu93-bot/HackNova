@@ -15,6 +15,14 @@ class PolicyDecisionEnum:
     SANITIZE = "SANITIZE"
     ESCALATE = "ESCALATE"
 
+class PersonData(BaseModel):
+    name: str = Field(default="Alex Vance")
+    email: str = Field(default="alex.vance@internal-enterprise.com")
+    employee_id: str = Field(default="EMP-8842")
+    department: str = Field(default="Finance & Commercial Ops")
+    client_ip: str = Field(default="192.168.1.104")
+    workstation: str = Field(default="WS-CORP-FIN-03")
+
 # --- Request Schemas ---
 
 class InspectRequest(BaseModel):
@@ -24,6 +32,10 @@ class InspectRequest(BaseModel):
     source_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata e.g. URL or filename")
     inspection_level: Optional[str] = Field(default="adaptive", description="standard, enhanced, deep, or adaptive")
     force_detector_degraded: Optional[bool] = Field(default=False, description="Simulate AI classifier failure for demo")
+    gemini_api_key: Optional[str] = Field(default=None, description="Optional Gemini API key for cloud confirmation")
+    force_cloud_verification: Optional[bool] = Field(default=False, description="Force consult Gemini cloud AI")
+    allow_simulation: Optional[bool] = Field(default=False, description="Allow offline simulated Gemini assessment")
+    person: Optional[PersonData] = Field(default=None, description="Employee or user identity metadata")
 
 class ActionCheckRequest(BaseModel):
     inspection_id: Optional[str] = Field(default=None, description="Bound inspection ID")
@@ -93,6 +105,21 @@ class IntentAnalysisResult(BaseModel):
     drift_score: int
     explanation: str
 
+class GeminiVerificationResult(BaseModel):
+    is_verified: bool = False
+    status: str = "none"  # "verified", "no_key", "error", "doubt_resolved"
+    message: Optional[str] = None
+    is_malicious: Optional[bool] = None
+    maliciousness_level: Optional[str] = None  # SAFE, LOW, MEDIUM, HIGH, CRITICAL
+    threat_score: Optional[int] = None  # 0 - 100
+    confidence: Optional[str] = None  # high, medium, low
+    reasoning: Optional[str] = None
+    detected_tactics: List[str] = Field(default_factory=list)
+    recommendation: Optional[str] = None  # ALLOW, BLOCK, SANITIZE, ESCALATE
+    model: str = "gemini-2.0-flash"
+    timestamp: Optional[str] = None
+    error: Optional[str] = None
+
 class InspectResponse(BaseModel):
     inspection_id: str
     decision: str  # ALLOW, BLOCK, SANITIZE, ESCALATE
@@ -113,6 +140,8 @@ class InspectResponse(BaseModel):
     decision_steps: List[DecisionStep]
     policy_version: str
     created_at: str
+    gemini_verification: Optional[GeminiVerificationResult] = None
+
 
 class ActionCheckResponse(BaseModel):
     action_allowed: bool
@@ -166,3 +195,47 @@ class EvaluationMetrics(BaseModel):
     hybrid_metrics: Dict[str, float]
     test_cases: List[Dict[str, Any]]
     evaluated_at: str
+
+class IncidentUpdateRequest(BaseModel):
+    status: Optional[str] = Field(default=None, description="Updated investigation status")
+    notes: Optional[str] = Field(default=None, description="Authority investigator notes")
+    investigator: Optional[str] = Field(default=None, description="Assigned authority investigator")
+
+class AuthorityStatsResponse(BaseModel):
+    total_prompts: int
+    malicious_attempts: int
+    transferred_incidents: int
+    departments_monitored: int
+
+class EscalateIncidentRequest(BaseModel):
+    inspection_id: Optional[str] = None
+    person: PersonData
+    malicious_text: str = Field(..., description="The exact offending text causing the threat")
+    violating_rules: List[str] = Field(default_factory=list)
+    severity: str = Field(default="high")
+    complete_prompt: str = Field(..., description="Complete prompt entered by the user")
+    authorized_task: str = Field(..., description="Claimed authorized user task")
+    decision: str = Field(default="BLOCK")
+    risk_priority: Optional[int] = Field(default=85)
+    higher_authority: Optional[str] = Field(default="Chief Information Security Officer (CISO) & SecOps Incident Response")
+    notes: Optional[str] = Field(default="")
+
+class EscalateIncidentResponse(BaseModel):
+    success: bool
+    incident_id: str
+    status: str
+    transferred_to: str
+    timestamp: str
+    message: str
+    dossier: Dict[str, Any]
+
+class GeminiVerifyRequest(BaseModel):
+    content: str = Field(..., description="Prompt or content to verify with Cloud AI")
+    task: Optional[str] = Field(default="", description="Authorized task context")
+    api_key: Optional[str] = Field(default=None, description="Optional Gemini API key")
+    allow_simulation: Optional[bool] = Field(default=False, description="Allow offline simulated Gemini assessment")
+
+class GeminiConfigUpdate(BaseModel):
+    api_key: str = Field(..., description="Google Gemini API key")
+
+
