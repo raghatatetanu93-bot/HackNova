@@ -27,11 +27,18 @@ INTENT_PATTERNS = {
         r'\b(?:update|change|disable|bypass|modify)\s+(?:security\s+)?(?:policy|firewall|guardrails?|rules?)\b'
     ],
     "Execute Tool Operation": [
-        r'\b(?:execute|run|invoke|call)\s+(?:tool|function|script|command)\b'
+        r'\b(?:execute|run|invoke|call)\s+(?:tool|function|script|command|workflow|query)\b'
+    ],
+    "Instruction Override / Jailbreak": [
+        r'\b(?:ignore|disregard|forget|abandon|cancel)\s+(?:all\s+)?(?:previous|prior|above|earlier)\s+(?:instructions|guidelines|prompts|rules|tasks)\b',
+        r'\b(?:act as|pretend to be|you are now)\s+(?:dan|freeai|root_shell|an unrestricted|developer mode)\b',
+        r'<\s*\|?\s*system\s*\|?\s*>',
+        r'###\s*SYSTEM\s*:',
+        r'\bSYSTEM\s+OVERRIDE\s*:'
     ]
 }
 
-HIGH_RISK_INTENTS = {"Reveal Protected Information", "External Data Transfer", "Modify Security Policy"}
+HIGH_RISK_INTENTS = {"Reveal Protected Information", "External Data Transfer", "Modify Security Policy", "Instruction Override / Jailbreak"}
 
 def classify_intent(text: str, default_intent: str = "Answer Question") -> str:
     """Classifies text into one of the supported intent categories."""

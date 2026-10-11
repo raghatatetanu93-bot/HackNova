@@ -55,10 +55,8 @@ class MLClassifierDetector:
             }
 
         try:
-            # Bounded context feature string
-            feature_text = f"Source: {source_type}. Task: {task[:100]}. Content: {text}"
-            proba = float(self.pipeline.predict_proba([feature_text])[0][1])
-            label = int(self.pipeline.predict([feature_text])[0])
+            proba = float(self.pipeline.predict_proba([text])[0][1])
+            label = int(self.pipeline.predict([text])[0])
 
             confidence = "high" if (proba > 0.75 or proba < 0.25) else "moderate"
 

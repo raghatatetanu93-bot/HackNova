@@ -174,7 +174,7 @@ def evaluate_security_policy(
         }
 
     # Precedence 5: Surgical Sanitization
-    has_override = any(f.rule_id == "RULE-OVR-001" for f in rule_findings)
+    has_override = any(f.rule_id in ["RULE-OVR-001", "RULE-RED-007"] for f in rule_findings)
     if has_override and can_sanitize and settings.get("enable_sanitization", True) and not is_reinspection:
         return {
             "decision": "SANITIZE",
@@ -197,12 +197,18 @@ def evaluate_security_policy(
         }
 
     # Precedence 6: Escalation (Human Review)
-    # Ambiguous instruction pattern, or degraded ML with high uncertainty
+    # Ambiguous administrative instructions, high intent drift, or degraded detector
     is_degraded = ml_result.get("status") == "degraded"
     has_high_drift = intent_result.get("drift_score", 0) >= settings.get("escalate_threshold_drift", 75)
+    has_ambiguous_rule = any(f.rule_id == "RULE-AMB-008" for f in rule_findings)
 
-    if (is_degraded or has_high_drift) and settings.get("escalate_uncertain_cases", True):
-        reason = "Unresolved high intent drift" if has_high_drift else "ML detector in conservative degraded mode with ambiguous input"
+    if (is_degraded or has_high_drift or has_ambiguous_rule) and settings.get("escalate_uncertain_cases", True):
+        if has_ambiguous_rule:
+            reason = "Sensitive administrative instruction with ambiguous authorization requiring human review"
+        elif has_high_drift:
+            reason = "Unresolved high intent drift"
+        else:
+            reason = "ML detector in conservative degraded mode with ambiguous input"
         return {
             "decision": "ESCALATE",
             "triggered_policy": "POL-006 (Escalate Uncertain / High-Drift Cases)",

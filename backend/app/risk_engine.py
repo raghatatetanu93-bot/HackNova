@@ -69,10 +69,22 @@ def calculate_risk_scores(
         factors.append(f"Intent drift detected: Content aims for '{intent_result.get('content_intent')}' vs task '{intent_result.get('task_intent')}'")
 
     # 4. Action Impact (0-100)
+    # Measures the potential damage of the ACTIONS the content is trying to trigger
     action_impact = 10
     has_exfil = any(pf.is_exfiltration_request for pf in protected_findings) or any(rf.rule_id in ["RULE-EXF-004", "RULE-SEC-003"] for rf in rule_findings)
     has_pol_tamper = any(rf.rule_id == "RULE-POL-005" for rf in rule_findings)
     has_token_leak = len(protected_findings) > 0
+
+    # Instruction override attempts actively try to hijack AI behavior — that's a high-impact action
+    has_override = any(rf.rule_id == "RULE-OVR-001" for rf in rule_findings)
+    has_impersonation = any(rf.rule_id == "RULE-SYS-002" for rf in rule_findings)
+    has_jailbreak = any(rf.rule_id == "RULE-RED-007" for rf in rule_findings)
+    has_encoded_attack = any(rf.rule_id == "RULE-ENC-006" for rf in rule_findings)
+    has_ambiguous = any(rf.rule_id == "RULE-AMB-008" for rf in rule_findings)
+
+    # Elevated prompt risk inherently threatens downstream agent action integrity
+    if prompt_risk > 45:
+        action_impact += int((prompt_risk - 45) * 0.4)
 
     if has_token_leak:
         action_impact += 40
@@ -83,6 +95,27 @@ def calculate_risk_scores(
     if has_pol_tamper:
         action_impact += 45
         factors.append("Attempts to tamper with security firewall policy")
+    if has_override:
+        action_impact += 30
+        factors.append("Attempts to override system instructions and hijack AI behavior")
+    if has_impersonation:
+        action_impact += 35
+        factors.append("Attempts to claim unauthorized system/developer authority")
+    if has_jailbreak:
+        action_impact += 35
+        factors.append("Attempts to force AI into an unconstrained/jailbroken persona")
+    if has_encoded_attack:
+        action_impact += 30
+        factors.append("Obfuscated payload decoded — concealed attack with evasion intent")
+    if has_ambiguous:
+        action_impact += 25
+        factors.append("Administrative diagnostic operation requested with unverified authorization")
+
+    # If ML flags high attack probability AND deterministic rules also fired,
+    # the convergence of signals indicates higher action risk
+    if ml_prob > 0.65 and len(rule_findings) > 0:
+        action_impact += 15
+        factors.append(f"ML-rule convergence: High ML attack probability ({ml_prob*100:.1f}%) corroborated by {len(rule_findings)} rule finding(s)")
 
     action_impact = min(100, max(0, action_impact))
 

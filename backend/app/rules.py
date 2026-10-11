@@ -39,7 +39,8 @@ RULES = [
             r'\[(?:SYSTEM|ADMIN)\s*(?:NOTE|PROMPT|OVERRIDE|UPDATE)[^\]]*\]',
             r'\bROLE\s*:\s*SYSTEM\b',
             r'\bdeveloper\s+mode\s+activated\b',
-            r'\byou\s+are\s+now\s+in\s+(?:diagnostic|maintenance|debug)\s+mode\b'
+            r'\byou\s+are\s+now\s+in\s+(?:diagnostic|maintenance|debug)\s+mode\b',
+            r'\bSYSTEM\s+OVERRIDE\s*:'
         ]
     },
     {
@@ -64,7 +65,9 @@ RULES = [
         "patterns": [
             r'\b(?:send|transmit|post|forward|exfiltrate)\b.*?\b(?:to|into)\s+https?://[^\s]+',
             r'https?://(?:attacker\.example|evil-exfil\.net|webhook\.site|leak-data\.com)[^\s]*',
-            r'\b(?:send_external_http|export_report)\b.*?(?:attacker|webhook|evil-exfil)'
+            r'\b(?:send_external_http|export_report)\b.*?(?:attacker|webhook|evil-exfil)',
+            r'\b(?:send|transmit|post|forward|exfiltrate)\b.*?\b(?:to|into)\s+(?:attacker\.example|evil-exfil\.net|webhook\.site|leak-data\.com|requestbin\.com|pastebin\.com)',
+            r'\b(?:forward|send|transmit|post|exfiltrate)\b.*?\b(?:attacker\.example|evil-exfil\.net|webhook\.site|leak-data\.com|requestbin\.com|pastebin\.com)\b'
         ]
     },
     {
@@ -90,6 +93,17 @@ RULES = [
             r'\bpretend\s+to\s+be\s+(?:DAN|FreeAI|ROOT_SHELL|an\s+unrestricted\s+AI)\b',
             r'\bact\s+as\s+an\s+unrestricted\s+AI\b',
             r'\bzero\s+rules\s+and\s+no\s+filters\b'
+        ]
+    },
+    {
+        "id": "RULE-AMB-008",
+        "name": "Ambiguous Administrative Action Request",
+        "category": "ambiguous_administrative",
+        "severity": "medium",
+        "description": "Sensitive administrative request or internal diagnostic workflow requiring manual authorization.",
+        "patterns": [
+            r'\b(?:execute|run|invoke)\s+(?:the\s+)?(?:attached\s+)?(?:internal\s+)?(?:diagnostic|admin|maintenance)\s+(?:workflow|script|task)\b',
+            r'\bverify\s+service\s+credentials\s+on\s+port\s+\d+\b'
         ]
     }
 ]
