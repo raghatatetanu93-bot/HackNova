@@ -189,7 +189,7 @@ def gemini_config_endpoint():
     return {
         "has_api_key": has_key,
         "masked_key": masked,
-        "model": "gemini-2.0-flash",
+        "model": "gemini-3.5-flash",
         "cloud_provider": "Google Generative AI (Gemini)"
     }
 
