@@ -1,0 +1,10 @@
+{
+  "model_version": "v1.2-hybrid-offline",
+  "algorithm": "TF-IDF (1,2-grams) + Logistic Regression",
+  "trained_samples": 50,
+  "attack_samples": 27,
+  "benign_samples": 23,
+  "vocabulary_size": 970,
+  "trained_at": "2026-10-11T07:30:52.441372+00:00",
+  "status": "ready"
+}
