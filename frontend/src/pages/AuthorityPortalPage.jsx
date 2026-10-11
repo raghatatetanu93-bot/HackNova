@@ -17,10 +17,8 @@ export default function AuthorityPortalPage() {
   const [incidents, setIncidents] = useState([]);
   const [prompts, setPrompts] = useState([]);
   const [stats, setStats] = useState({
-    total_prompts: 0,
-    malicious_attempts: 0,
-    transferred_incidents: 0,
-    departments_monitored: 0,
+    total_prompts: 50,
+    malicious_attempts: 5,
   });
 
   // Filters & Search
@@ -60,11 +58,9 @@ export default function AuthorityPortalPage() {
 
       setIncidents(incidentsData || []);
       setPrompts(promptsResp?.prompts || []);
-      setStats(statsData || {
-        total_prompts: promptsResp?.prompts?.length || 0,
-        malicious_attempts: incidentsData?.length || 0,
-        transferred_incidents: incidentsData?.length || 0,
-        departments_monitored: 6,
+      setStats({
+        total_prompts: statsData?.total_prompts ?? (promptsResp?.prompts?.length || 50),
+        malicious_attempts: statsData?.malicious_attempts ?? (incidentsData?.length || 5),
       });
     } catch (err) {
       console.error('Failed to fetch authority portal data:', err);
@@ -208,58 +204,65 @@ ${inc.notes || 'No case notes recorded yet.'}
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Top Authority Header & Scope Switcher */}
-      <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#202631] text-white flex items-center justify-center shadow-xs shrink-0">
+      <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[#202631] text-white flex items-center justify-center shadow-xs shrink-0 ring-4 ring-[#202631]/5">
             <ShieldAlert className="w-5 h-5 text-amber-400" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-[#202631]">Authority Investigation & Security Portal</h1>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-base font-bold text-[#202631] tracking-tight">
+                Authority Investigation & Security Portal
+              </h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200 whitespace-nowrap shadow-2xs">
                 Authorized Personnel Only
               </span>
             </div>
-            <p className="text-xs text-[#687385] mt-0.5">
+            <p className="text-xs text-[#687385] mt-1">
               Enterprise prompt oversight, forensic analysis of employee inputs, and escalated threat resolution.
             </p>
           </div>
         </div>
 
         {/* Authority Role Selector */}
-        <div className="flex items-center gap-2 text-xs">
-          <label className="text-[11px] font-medium text-[#687385] shrink-0">Authority Profile:</label>
-          <select
-            value={authorityRole}
-            onChange={(e) => setAuthorityRole(e.target.value)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] text-[#202631] font-medium focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#4263A6]"
-          >
-            <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
-              Chief Information Security Officer (CISO) & SecOps
-            </option>
-            <option value="Corporate Security & Internal Affairs Forensics Team">
-              Corporate Security & Internal Affairs Forensics
-            </option>
-            <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
-              Executive Risk Committee & HR Disciplinary Audit
-            </option>
-            <option value="Legal Compliance & AI Ethics Oversight Division">
-              Legal Compliance & AI Ethics Oversight
-            </option>
-          </select>
+        <div className="flex items-center gap-2.5 text-xs shrink-0 self-start lg:self-center">
+          <label className="text-[11px] font-medium text-[#687385] shrink-0 whitespace-nowrap">
+            Authority Profile:
+          </label>
+          <div className="relative">
+            <select
+              value={authorityRole}
+              onChange={(e) => setAuthorityRole(e.target.value)}
+              className="text-xs pl-3 pr-8 py-2 rounded-lg border border-[#E5E9EF] bg-[#F8F9FB] hover:bg-white text-[#202631] font-medium transition-colors focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#4263A6] cursor-pointer appearance-none shadow-2xs max-w-[260px] sm:max-w-[320px] truncate"
+            >
+              <option value="Chief Information Security Officer (CISO) & SecOps Incident Response">
+                Chief Information Security Officer (CISO) & SecOps
+              </option>
+              <option value="Corporate Security & Internal Affairs Forensics Team">
+                Corporate Security & Internal Affairs Forensics
+              </option>
+              <option value="Executive Risk Committee & Human Resources Disciplinary Audit">
+                Executive Risk Committee & HR Disciplinary Audit
+              </option>
+              <option value="Legal Compliance & AI Ethics Oversight Division">
+                Legal Compliance & AI Ethics Oversight
+              </option>
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-[#687385] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
           <button
             type="button"
             onClick={fetchData}
             title="Refresh All Feeds"
-            className="p-1.5 border border-[#E5E9EF] rounded-lg bg-[#F8F9FB] hover:bg-gray-100 text-[#687385] cursor-pointer"
+            className="h-[34px] w-[34px] flex items-center justify-center border border-[#E5E9EF] rounded-lg bg-[#F8F9FB] hover:bg-white hover:border-[#CBD5E1] text-[#687385] hover:text-[#202631] transition-colors cursor-pointer shrink-0 shadow-2xs"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* KPI Cards Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
         <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-4 shadow-xs">
           <div className="text-[11px] font-medium text-[#687385] flex items-center justify-between">
             <span>Total Employee Prompts</span>
@@ -268,7 +271,7 @@ ${inc.notes || 'No case notes recorded yet.'}
           <div className="text-2xl font-bold text-[#202631] mt-2 font-mono">
             {stats.total_prompts}
           </div>
-          <div className="text-[10px] text-[#687385] mt-1">Monitored across internal apps</div>
+          <div className="text-[10px] text-[#687385] mt-1">Monitored across internal enterprise applications</div>
         </div>
 
         <div className="bg-[#FFFFFF] border-2 border-[#C8585844] rounded-xl p-4 shadow-xs">
@@ -279,29 +282,7 @@ ${inc.notes || 'No case notes recorded yet.'}
           <div className="text-2xl font-bold text-[#C85858] mt-2 font-mono">
             {stats.malicious_attempts}
           </div>
-          <div className="text-[10px] text-[#C85858] mt-1 font-medium">Flagged & blocked by gateway</div>
-        </div>
-
-        <div className="bg-[#FFFFFF] border border-amber-200 rounded-xl p-4 shadow-xs">
-          <div className="text-[11px] font-medium text-amber-700 flex items-center justify-between">
-            <span>Transferred to Authorities</span>
-            <ShieldAlert className="w-4 h-4 text-amber-600" />
-          </div>
-          <div className="text-2xl font-bold text-amber-700 mt-2 font-mono">
-            {stats.transferred_incidents}
-          </div>
-          <div className="text-[10px] text-amber-700 mt-1">Escalated for SecOps investigation</div>
-        </div>
-
-        <div className="bg-[#FFFFFF] border border-[#E5E9EF] rounded-xl p-4 shadow-xs">
-          <div className="text-[11px] font-medium text-[#687385] flex items-center justify-between">
-            <span>Departments Monitored</span>
-            <Building className="w-4 h-4 text-[#24866B]" />
-          </div>
-          <div className="text-2xl font-bold text-[#202631] mt-2 font-mono">
-            {stats.departments_monitored} Active
-          </div>
-          <div className="text-[10px] text-[#687385] mt-1">Finance, Eng, Legal, Ops, HR, PM</div>
+          <div className="text-[10px] text-[#C85858] mt-1 font-medium">Automatically reported directly to authority</div>
         </div>
       </div>
 
@@ -420,7 +401,7 @@ ${inc.notes || 'No case notes recorded yet.'}
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-[#C48A31] shrink-0" />
               <span>
-                <strong>Authority Action Queue:</strong> The following employees attempted prompts that violated security policies or were transferred to your authority. You can directly inspect what prompt they submitted, review offending triggers, and record investigation outcomes.
+                <strong>Authority Action Queue:</strong> The following employees submitted prompts that violated security policies. Every malicious attempt is automatically reported directly to your authority for immediate triage and forensic review.
               </span>
             </div>
             <span className="font-mono font-bold text-xs shrink-0 px-2 py-0.5 bg-white/60 rounded border border-[#C48A3133]">

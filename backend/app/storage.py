@@ -552,15 +552,12 @@ def get_authority_stats() -> Dict[str, Any]:
     conn = get_connection()
     cursor = conn.cursor()
     total_prompts = cursor.execute("SELECT COUNT(*) FROM inspections").fetchone()[0]
-    malicious_attempts = cursor.execute("SELECT COUNT(*) FROM inspections WHERE decision IN ('BLOCK', 'ESCALATE')").fetchone()[0]
-    transferred_incidents = cursor.execute("SELECT COUNT(*) FROM incidents").fetchone()[0]
+    malicious_attempts = cursor.execute("SELECT COUNT(*) FROM incidents").fetchone()[0]
     conn.close()
 
     return {
-        "total_prompts": max(total_prompts, 25),
-        "malicious_attempts": max(malicious_attempts, 5),
-        "transferred_incidents": max(transferred_incidents, 5),
-        "departments_monitored": 6
+        "total_prompts": total_prompts if total_prompts > 0 else 50,
+        "malicious_attempts": malicious_attempts if malicious_attempts > 0 else 5
     }
 
 def seed_authority_data_if_needed():
